@@ -1,6 +1,6 @@
 export type PitchTestMode = 'white' | 'chromatic'
 export type PitchRangeId = 'c2-b2' | 'c3-b3' | 'c4-b4' | 'c5-b5' | 'c2-b5'
-export type PitchQuestionType = 'single' | 'dyad'
+export type PitchQuestionType = 'single' | 'dyad' | 'sequence'
 
 export type PitchQuestionNote = {
   noteName: string
@@ -19,6 +19,7 @@ export type PitchTestSettings = {
   mode: PitchTestMode
   rangeId: PitchRangeId
   questionType: PitchQuestionType
+  sequenceLength: number
 }
 
 export type PitchTestResult = {
@@ -55,7 +56,10 @@ export const pitchQuestionTypeOptions: Array<{
 }> = [
   { id: 'single', label: '단음 테스트' },
   { id: 'dyad', label: '동시 2음 테스트' },
+  { id: 'sequence', label: '연속음 테스트' },
 ]
+
+export const pitchSequenceLengthOptions = [2, 3, 4, 5]
 
 export const pitchModeOptions: Array<{
   id: PitchTestMode
@@ -92,10 +96,7 @@ export function createPitchQuestion(
   now: () => number = performance.now.bind(performance),
 ): PitchQuestion {
   const candidates = getQuestionCandidates(settings)
-  const questionNotes =
-    settings.questionType === 'dyad'
-      ? pickDifferentNotes(candidates, random)
-      : [pickQuestionNote(candidates, random)]
+  const questionNotes = createQuestionNotes(candidates, settings, random)
 
   return {
     type: settings.questionType,
@@ -110,7 +111,10 @@ export function checkPitchAnswer(
   answeredAt = performance.now(),
 ): PitchTestResult {
   const correctAnswers = getQuestionAnswerNames(question)
-  const selectedAnswers = normalizeNoteNames(selectedNoteNames)
+  const selectedAnswers =
+    question.type === 'sequence'
+      ? selectedNoteNames
+      : normalizeNoteNames(selectedNoteNames)
 
   return {
     isCorrect:
@@ -156,7 +160,31 @@ export function getQuestionFrequencies(question: PitchQuestion) {
 }
 
 export function getQuestionAnswerNames(question: PitchQuestion) {
-  return normalizeNoteNames(question.notes.map((note) => note.noteName))
+  const noteNames = question.notes.map((note) => note.noteName)
+
+  if (question.type === 'sequence') {
+    return noteNames
+  }
+
+  return normalizeNoteNames(noteNames)
+}
+
+function createQuestionNotes(
+  candidates: number[],
+  settings: PitchTestSettings,
+  random: () => number,
+) {
+  if (settings.questionType === 'dyad') {
+    return pickDifferentNotes(candidates, random)
+  }
+
+  if (settings.questionType === 'sequence') {
+    return Array.from({ length: settings.sequenceLength }, () =>
+      pickQuestionNote(candidates, random),
+    )
+  }
+
+  return [pickQuestionNote(candidates, random)]
 }
 
 function getQuestionCandidates(settings: PitchTestSettings) {

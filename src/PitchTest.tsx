@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { playSineTones } from './audioEngine'
+import { playSineToneSequence, playSineTones } from './audioEngine'
 import {
   checkPitchAnswer,
   createPitchQuestion,
@@ -11,6 +11,7 @@ import {
   pitchModeOptions,
   pitchQuestionTypeOptions,
   pitchRangeOptions,
+  pitchSequenceLengthOptions,
   updatePitchStatsByNote,
   type PitchQuestionType,
   type PitchRangeId,
@@ -24,6 +25,7 @@ export function PitchTest() {
     mode: 'white',
     rangeId: 'c4-b4',
     questionType: 'single',
+    sequenceLength: 2,
   })
   const [question, setQuestion] = useState(() => createPitchQuestion(settings))
   const [selectedNoteNames, setSelectedNoteNames] = useState<string[]>([])
@@ -45,12 +47,19 @@ export function PitchTest() {
     () => getAverageResponseTimeMs(responseTimesMs),
     [responseTimesMs],
   )
-  const requiredAnswerCount = settings.questionType === 'dyad' ? 2 : 1
+  const requiredAnswerCount = getRequiredAnswerCount(settings)
   const selectedAnswerText =
     selectedNoteNames.length > 0 ? selectedNoteNames.join(' - ') : '없음'
+  const isSequence = settings.questionType === 'sequence'
 
   function handleQuestionTypeChange(questionType: PitchQuestionType) {
     const nextSettings = { ...settings, questionType }
+    setSettings(nextSettings)
+    resetCurrentQuestion(nextSettings)
+  }
+
+  function handleSequenceLengthChange(sequenceLength: number) {
+    const nextSettings = { ...settings, sequenceLength }
     setSettings(nextSettings)
     resetCurrentQuestion(nextSettings)
   }
@@ -67,12 +76,18 @@ export function PitchTest() {
     resetCurrentQuestion(nextSettings)
   }
 
-  function handleToggleAnswer(noteName: string) {
+  function handleAnswer(noteName: string) {
     if (result) {
       return
     }
 
     setSelectedNoteNames((current) => {
+      if (isSequence) {
+        return current.length >= requiredAnswerCount
+          ? current
+          : [...current, noteName]
+      }
+
       if (current.includes(noteName)) {
         return current.filter((item) => item !== noteName)
       }
@@ -83,6 +98,22 @@ export function PitchTest() {
 
       return [...current, noteName]
     })
+  }
+
+  function handleUndoAnswer() {
+    if (result) {
+      return
+    }
+
+    setSelectedNoteNames((current) => current.slice(0, -1))
+  }
+
+  function handleClearAnswer() {
+    if (result) {
+      return
+    }
+
+    setSelectedNoteNames([])
   }
 
   function handleSubmitAnswer() {
@@ -103,6 +134,17 @@ export function PitchTest() {
     }
   }
 
+  function handlePlayQuestion() {
+    const frequencies = getQuestionFrequencies(question)
+
+    if (isSequence) {
+      void playSineToneSequence(frequencies, 0.6)
+      return
+    }
+
+    void playSineTones(frequencies)
+  }
+
   function handleNextQuestion() {
     resetCurrentQuestion(settings)
   }
@@ -119,7 +161,7 @@ export function PitchTest() {
         <p className="eyebrow">Absolute Pitch</p>
         <h1 id="pitch-title">절대음감 테스트</h1>
         <p className="hero-copy">
-          선택한 난이도와 음역 안에서 단음 또는 서로 다른 두 음이 랜덤으로
+          선택한 난이도와 음역 안에서 단음, 동시 2음, 연속음이 랜덤으로
           출제됩니다. 기준음 없이 들리는 음이름을 선택합니다.
         </p>
       </section>
@@ -133,7 +175,7 @@ export function PitchTest() {
         <div className="settings-stack">
           <div>
             <span className="setting-label">테스트 유형</span>
-            <div className="view-toggle compact-toggle" role="group" aria-label="테스트 유형">
+            <div className="type-toggle" role="group" aria-label="테스트 유형">
               {pitchQuestionTypeOptions.map((option) => (
                 <button
                   key={option.id}
@@ -150,6 +192,28 @@ export function PitchTest() {
               ))}
             </div>
           </div>
+
+          {isSequence && (
+            <div>
+              <span className="setting-label">연속음 개수</span>
+              <div className="sequence-length-grid" role="group" aria-label="연속음 개수">
+                {pitchSequenceLengthOptions.map((length) => (
+                  <button
+                    key={length}
+                    type="button"
+                    className={
+                      settings.sequenceLength === length
+                        ? 'key-button selected'
+                        : 'key-button'
+                    }
+                    onClick={() => handleSequenceLengthChange(length)}
+                  >
+                    {length}개
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <span className="setting-label">모드</span>
@@ -196,14 +260,8 @@ export function PitchTest() {
       <section className="scale-panel quiz-panel" aria-label="절대음감 테스트">
         <div className="section-heading">
           <div>
-            <h2>
-              {settings.questionType === 'dyad' ? '동시 2음 테스트' : '단음 테스트'}
-            </h2>
-            <p>
-              {settings.questionType === 'dyad'
-                ? '서로 다른 두 음을 동시에 재생합니다.'
-                : '같은 음이 연속으로 나올 수 있습니다.'}
-            </p>
+            <h2>{getQuestionTypeLabel(settings.questionType)}</h2>
+            <p>{getQuestionDescription(settings)}</p>
           </div>
           <div className="pitch-metrics">
             <div className="quiz-score" aria-label="정답률과 총 문제 수">
@@ -217,24 +275,37 @@ export function PitchTest() {
 
         <div className="quiz-question">
           <span className="quiz-label">문제</span>
-          <strong>
-            {settings.questionType === 'dyad'
-              ? '동시에 재생된 두 음은 무엇인가요?'
-              : '재생된 음은 무엇인가요?'}
-          </strong>
+          <strong>{getQuestionPrompt(settings.questionType)}</strong>
         </div>
 
-        <button
-          type="button"
-          className="play-note-button"
-          onClick={() => void playSineTones(getQuestionFrequencies(question))}
-        >
+        <button type="button" className="play-note-button" onClick={handlePlayQuestion}>
           음 재생
         </button>
 
-        <div className="selected-notes" aria-label="선택한 음">
-          선택한 음: {selectedAnswerText}
+        <div className="selected-notes" aria-label="현재 입력된 음 순서">
+          입력한 음: {selectedAnswerText}
         </div>
+
+        {isSequence && (
+          <div className="answer-edit-actions">
+            <button
+              type="button"
+              className="secondary-action-button"
+              disabled={Boolean(result) || selectedNoteNames.length === 0}
+              onClick={handleUndoAnswer}
+            >
+              하나씩 되돌리기
+            </button>
+            <button
+              type="button"
+              className="secondary-action-button"
+              disabled={Boolean(result) || selectedNoteNames.length === 0}
+              onClick={handleClearAnswer}
+            >
+              전체 초기화
+            </button>
+          </div>
+        )}
 
         <div className="answer-grid" aria-label="음 이름 선택">
           {pitchAnswerOptions.map((noteName) => {
@@ -256,7 +327,7 @@ export function PitchTest() {
                 type="button"
                 className={answerClassName}
                 disabled={Boolean(result)}
-                onClick={() => handleToggleAnswer(noteName)}
+                onClick={() => handleAnswer(noteName)}
               >
                 {noteName}
               </button>
@@ -275,7 +346,7 @@ export function PitchTest() {
           >
             <strong>{result.isCorrect ? '정답입니다.' : '오답입니다.'}</strong>
             <span>
-              선택한 답: {selectedAnswerText} / 정답:{' '}
+              입력한 답: {selectedAnswerText} / 정답 순서:{' '}
               {result.correctAnswers.join(' - ')}
             </span>
             <span>응답시간: {formatResponseTime(result.responseTimeMs)}</span>
@@ -328,6 +399,54 @@ export function PitchTest() {
       </section>
     </main>
   )
+}
+
+function getRequiredAnswerCount(settings: PitchTestSettings) {
+  if (settings.questionType === 'dyad') {
+    return 2
+  }
+
+  if (settings.questionType === 'sequence') {
+    return settings.sequenceLength
+  }
+
+  return 1
+}
+
+function getQuestionTypeLabel(questionType: PitchQuestionType) {
+  if (questionType === 'dyad') {
+    return '동시 2음 테스트'
+  }
+
+  if (questionType === 'sequence') {
+    return '연속음 테스트'
+  }
+
+  return '단음 테스트'
+}
+
+function getQuestionDescription(settings: PitchTestSettings) {
+  if (settings.questionType === 'dyad') {
+    return '서로 다른 두 음을 동시에 재생합니다.'
+  }
+
+  if (settings.questionType === 'sequence') {
+    return `${settings.sequenceLength}개 음을 0.6초 간격으로 순서대로 재생합니다.`
+  }
+
+  return '같은 음이 연속으로 나올 수 있습니다.'
+}
+
+function getQuestionPrompt(questionType: PitchQuestionType) {
+  if (questionType === 'dyad') {
+    return '동시에 재생된 두 음은 무엇인가요?'
+  }
+
+  if (questionType === 'sequence') {
+    return '순서대로 재생된 음은 무엇인가요?'
+  }
+
+  return '재생된 음은 무엇인가요?'
 }
 
 function formatResponseTime(responseTimeMs: number) {
