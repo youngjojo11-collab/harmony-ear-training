@@ -529,6 +529,10 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.question-type-range-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .range-warning {
   margin: 0;
   padding: 12px 14px;
@@ -822,7 +826,8 @@
   }
 
   .key-range-grid,
-  .chord-range-grid {
+  .chord-range-grid,
+  .question-type-range-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -899,7 +904,8 @@
 
   .key-range-grid,
   .mode-range-grid,
-  .chord-range-grid {
+  .chord-range-grid,
+  .question-type-range-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
