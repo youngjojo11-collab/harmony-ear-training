@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
-import { playSineTone } from './audioEngine'
+import { playSineTones } from './audioEngine'
 import {
   checkPitchAnswer,
   createPitchQuestion,
   getAverageResponseTimeMs,
+  getQuestionAnswerNames,
+  getQuestionFrequencies,
   initialPitchStatsByNote,
   pitchAnswerOptions,
   pitchModeOptions,
+  pitchQuestionTypeOptions,
   pitchRangeOptions,
   updatePitchStatsByNote,
+  type PitchQuestionType,
   type PitchRangeId,
   type PitchTestMode,
   type PitchTestResult,
@@ -19,9 +23,10 @@ export function PitchTest() {
   const [settings, setSettings] = useState<PitchTestSettings>({
     mode: 'white',
     rangeId: 'c4-b4',
+    questionType: 'single',
   })
   const [question, setQuestion] = useState(() => createPitchQuestion(settings))
-  const [selectedNoteName, setSelectedNoteName] = useState('')
+  const [selectedNoteNames, setSelectedNoteNames] = useState<string[]>([])
   const [result, setResult] = useState<PitchTestResult | null>(null)
   const [score, setScore] = useState(0)
   const [totalQuestions, setTotalQuestions] = useState(0)
@@ -40,6 +45,15 @@ export function PitchTest() {
     () => getAverageResponseTimeMs(responseTimesMs),
     [responseTimesMs],
   )
+  const requiredAnswerCount = settings.questionType === 'dyad' ? 2 : 1
+  const selectedAnswerText =
+    selectedNoteNames.length > 0 ? selectedNoteNames.join(' - ') : '없음'
+
+  function handleQuestionTypeChange(questionType: PitchQuestionType) {
+    const nextSettings = { ...settings, questionType }
+    setSettings(nextSettings)
+    resetCurrentQuestion(nextSettings)
+  }
 
   function handleModeChange(mode: PitchTestMode) {
     const nextSettings = { ...settings, mode }
@@ -53,13 +67,30 @@ export function PitchTest() {
     resetCurrentQuestion(nextSettings)
   }
 
-  function handleAnswer(noteName: string) {
+  function handleToggleAnswer(noteName: string) {
     if (result) {
       return
     }
 
-    const nextResult = checkPitchAnswer(question, noteName)
-    setSelectedNoteName(noteName)
+    setSelectedNoteNames((current) => {
+      if (current.includes(noteName)) {
+        return current.filter((item) => item !== noteName)
+      }
+
+      if (current.length >= requiredAnswerCount) {
+        return [...current.slice(1), noteName]
+      }
+
+      return [...current, noteName]
+    })
+  }
+
+  function handleSubmitAnswer() {
+    if (result || selectedNoteNames.length !== requiredAnswerCount) {
+      return
+    }
+
+    const nextResult = checkPitchAnswer(question, selectedNoteNames)
     setResult(nextResult)
     setTotalQuestions((current) => current + 1)
     setResponseTimesMs((current) => [...current, nextResult.responseTimeMs])
@@ -78,7 +109,7 @@ export function PitchTest() {
 
   function resetCurrentQuestion(nextSettings: PitchTestSettings) {
     setQuestion(createPitchQuestion(nextSettings))
-    setSelectedNoteName('')
+    setSelectedNoteNames([])
     setResult(null)
   }
 
@@ -88,18 +119,38 @@ export function PitchTest() {
         <p className="eyebrow">Absolute Pitch</p>
         <h1 id="pitch-title">절대음감 테스트</h1>
         <p className="hero-copy">
-          선택한 난이도와 음역 안에서 단음이 랜덤으로 출제됩니다. 기준음
-          없이 들리는 음이름을 선택합니다.
+          선택한 난이도와 음역 안에서 단음 또는 서로 다른 두 음이 랜덤으로
+          출제됩니다. 기준음 없이 들리는 음이름을 선택합니다.
         </p>
       </section>
 
       <section className="scale-panel" aria-label="난이도 설정">
         <div className="section-heading">
           <h2>난이도 설정</h2>
-          <p>모드와 음역</p>
+          <p>테스트 유형, 모드, 음역</p>
         </div>
 
         <div className="settings-stack">
+          <div>
+            <span className="setting-label">테스트 유형</span>
+            <div className="view-toggle compact-toggle" role="group" aria-label="테스트 유형">
+              {pitchQuestionTypeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={
+                    settings.questionType === option.id
+                      ? 'view-button selected'
+                      : 'view-button'
+                  }
+                  onClick={() => handleQuestionTypeChange(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <span className="setting-label">모드</span>
             <div className="view-toggle compact-toggle" role="group" aria-label="모드">
@@ -142,11 +193,17 @@ export function PitchTest() {
         </div>
       </section>
 
-      <section className="scale-panel quiz-panel" aria-label="단음 테스트">
+      <section className="scale-panel quiz-panel" aria-label="절대음감 테스트">
         <div className="section-heading">
           <div>
-            <h2>단음 테스트</h2>
-            <p>같은 음이 연속으로 나올 수 있습니다.</p>
+            <h2>
+              {settings.questionType === 'dyad' ? '동시 2음 테스트' : '단음 테스트'}
+            </h2>
+            <p>
+              {settings.questionType === 'dyad'
+                ? '서로 다른 두 음을 동시에 재생합니다.'
+                : '같은 음이 연속으로 나올 수 있습니다.'}
+            </p>
           </div>
           <div className="pitch-metrics">
             <div className="quiz-score" aria-label="정답률과 총 문제 수">
@@ -160,26 +217,35 @@ export function PitchTest() {
 
         <div className="quiz-question">
           <span className="quiz-label">문제</span>
-          <strong>재생된 음은 무엇인가요?</strong>
+          <strong>
+            {settings.questionType === 'dyad'
+              ? '동시에 재생된 두 음은 무엇인가요?'
+              : '재생된 음은 무엇인가요?'}
+          </strong>
         </div>
 
         <button
           type="button"
           className="play-note-button"
-          onClick={() => void playSineTone(question.frequency)}
+          onClick={() => void playSineTones(getQuestionFrequencies(question))}
         >
           음 재생
         </button>
 
+        <div className="selected-notes" aria-label="선택한 음">
+          선택한 음: {selectedAnswerText}
+        </div>
+
         <div className="answer-grid" aria-label="음 이름 선택">
           {pitchAnswerOptions.map((noteName) => {
-            const isSelected = selectedNoteName === noteName
-            const isCorrectAnswer = result && noteName === question.noteName
+            const isSelected = selectedNoteNames.includes(noteName)
+            const isCorrectAnswer =
+              result && getQuestionAnswerNames(question).includes(noteName)
             const answerClassName = [
               'answer-button',
               isSelected ? 'selected' : '',
               isCorrectAnswer ? 'correct' : '',
-              result && isSelected && !result.isCorrect ? 'incorrect' : '',
+              result && isSelected && !isCorrectAnswer ? 'incorrect' : '',
             ]
               .filter(Boolean)
               .join(' ')
@@ -190,7 +256,7 @@ export function PitchTest() {
                 type="button"
                 className={answerClassName}
                 disabled={Boolean(result)}
-                onClick={() => handleAnswer(noteName)}
+                onClick={() => handleToggleAnswer(noteName)}
               >
                 {noteName}
               </button>
@@ -209,20 +275,31 @@ export function PitchTest() {
           >
             <strong>{result.isCorrect ? '정답입니다.' : '오답입니다.'}</strong>
             <span>
-              선택한 답: {selectedNoteName} / 정답: {result.correctAnswer}
+              선택한 답: {selectedAnswerText} / 정답:{' '}
+              {result.correctAnswers.join(' - ')}
             </span>
             <span>응답시간: {formatResponseTime(result.responseTimeMs)}</span>
           </div>
         )}
 
-        <button
-          type="button"
-          className="next-question-button"
-          disabled={!result}
-          onClick={handleNextQuestion}
-        >
-          다음 문제
-        </button>
+        <div className="quiz-actions">
+          <button
+            type="button"
+            className="submit-answer-button"
+            disabled={Boolean(result) || selectedNoteNames.length !== requiredAnswerCount}
+            onClick={handleSubmitAnswer}
+          >
+            제출
+          </button>
+          <button
+            type="button"
+            className="next-question-button"
+            disabled={!result}
+            onClick={handleNextQuestion}
+          >
+            다음 문제
+          </button>
+        </div>
       </section>
 
       <section className="scale-panel" aria-label="음별 정답률">

@@ -1,23 +1,33 @@
 export async function playSineTone(frequency: number, durationSeconds = 0.9) {
+  await playSineTones([frequency], durationSeconds)
+}
+
+export async function playSineTones(
+  frequencies: number[],
+  durationSeconds = 0.9,
+) {
   const AudioContextClass = window.AudioContext ?? window.webkitAudioContext
   const audioContext = new AudioContextClass()
-  const oscillator = audioContext.createOscillator()
-  const gain = audioContext.createGain()
   const now = audioContext.currentTime
+  const outputGain = audioContext.createGain()
+  const peakGain = Math.min(0.28, 0.42 / frequencies.length)
 
-  oscillator.type = 'sine'
-  oscillator.frequency.setValueAtTime(frequency, now)
+  outputGain.gain.setValueAtTime(0.0001, now)
+  outputGain.gain.exponentialRampToValueAtTime(peakGain, now + 0.02)
+  outputGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds)
+  outputGain.connect(audioContext.destination)
 
-  gain.gain.setValueAtTime(0.0001, now)
-  gain.gain.exponentialRampToValueAtTime(0.28, now + 0.02)
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds)
+  const oscillators = frequencies.map((frequency) => {
+    const oscillator = audioContext.createOscillator()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(frequency, now)
+    oscillator.connect(outputGain)
+    oscillator.start(now)
+    oscillator.stop(now + durationSeconds)
+    return oscillator
+  })
 
-  oscillator.connect(gain)
-  gain.connect(audioContext.destination)
-  oscillator.start(now)
-  oscillator.stop(now + durationSeconds)
-
-  oscillator.addEventListener('ended', () => {
+  oscillators[0]?.addEventListener('ended', () => {
     void audioContext.close()
   })
 }

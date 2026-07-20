@@ -1,22 +1,29 @@
 export type PitchTestMode = 'white' | 'chromatic'
 export type PitchRangeId = 'c2-b2' | 'c3-b3' | 'c4-b4' | 'c5-b5' | 'c2-b5'
+export type PitchQuestionType = 'single' | 'dyad'
 
-export type PitchQuestion = {
+export type PitchQuestionNote = {
   noteName: string
   octave: number
   frequency: number
   midiNote: number
+}
+
+export type PitchQuestion = {
+  type: PitchQuestionType
+  notes: PitchQuestionNote[]
   startedAt: number
 }
 
 export type PitchTestSettings = {
   mode: PitchTestMode
   rangeId: PitchRangeId
+  questionType: PitchQuestionType
 }
 
 export type PitchTestResult = {
   isCorrect: boolean
-  correctAnswer: string
+  correctAnswers: string[]
   responseTimeMs: number
 }
 
@@ -40,6 +47,14 @@ export const pitchAnswerOptions = [
   'A',
   'A#',
   'B',
+]
+
+export const pitchQuestionTypeOptions: Array<{
+  id: PitchQuestionType
+  label: string
+}> = [
+  { id: 'single', label: '단음 테스트' },
+  { id: 'dyad', label: '동시 2음 테스트' },
 ]
 
 export const pitchModeOptions: Array<{
@@ -77,27 +92,31 @@ export function createPitchQuestion(
   now: () => number = performance.now.bind(performance),
 ): PitchQuestion {
   const candidates = getQuestionCandidates(settings)
-  const midiNote = candidates[getRandomIndex(candidates.length, random)]
-  const noteName = getNoteNameFromMidiNote(midiNote)
-  const octave = Math.floor(midiNote / 12) - 1
+  const questionNotes =
+    settings.questionType === 'dyad'
+      ? pickDifferentNotes(candidates, random)
+      : [pickQuestionNote(candidates, random)]
 
   return {
-    noteName,
-    octave,
-    midiNote,
-    frequency: getFrequencyFromMidiNote(midiNote),
+    type: settings.questionType,
+    notes: questionNotes,
     startedAt: now(),
   }
 }
 
 export function checkPitchAnswer(
   question: PitchQuestion,
-  selectedNoteName: string,
+  selectedNoteNames: string[],
   answeredAt = performance.now(),
 ): PitchTestResult {
+  const correctAnswers = getQuestionAnswerNames(question)
+  const selectedAnswers = normalizeNoteNames(selectedNoteNames)
+
   return {
-    isCorrect: selectedNoteName === question.noteName,
-    correctAnswer: question.noteName,
+    isCorrect:
+      correctAnswers.length === selectedAnswers.length &&
+      correctAnswers.every((noteName, index) => noteName === selectedAnswers[index]),
+    correctAnswers,
     responseTimeMs: Math.max(0, answeredAt - question.startedAt),
   }
 }
@@ -107,13 +126,16 @@ export function updatePitchStatsByNote(
   question: PitchQuestion,
   result: PitchTestResult,
 ): PitchStatsByNote {
-  return {
-    ...stats,
-    [question.noteName]: {
-      attempts: stats[question.noteName].attempts + 1,
-      correct: stats[question.noteName].correct + (result.isCorrect ? 1 : 0),
-    },
-  }
+  return getQuestionAnswerNames(question).reduce<PitchStatsByNote>(
+    (nextStats, noteName) => ({
+      ...nextStats,
+      [noteName]: {
+        attempts: nextStats[noteName].attempts + 1,
+        correct: nextStats[noteName].correct + (result.isCorrect ? 1 : 0),
+      },
+    }),
+    stats,
+  )
 }
 
 export function getAverageResponseTimeMs(responseTimesMs: number[]) {
@@ -127,6 +149,14 @@ export function getAverageResponseTimeMs(responseTimesMs: number[]) {
   )
 
   return Math.round(totalResponseTime / responseTimesMs.length)
+}
+
+export function getQuestionFrequencies(question: PitchQuestion) {
+  return question.notes.map((note) => note.frequency)
+}
+
+export function getQuestionAnswerNames(question: PitchQuestion) {
+  return normalizeNoteNames(question.notes.map((note) => note.noteName))
 }
 
 function getQuestionCandidates(settings: PitchTestSettings) {
@@ -146,6 +176,35 @@ function getQuestionCandidates(settings: PitchTestSettings) {
 
     return whiteKeyNoteNames.has(getNoteNameFromMidiNote(midiNote))
   })
+}
+
+function pickDifferentNotes(candidates: number[], random: () => number) {
+  const firstNote = pickQuestionNote(candidates, random)
+  const differentCandidates = candidates.filter(
+    (midiNote) => getNoteNameFromMidiNote(midiNote) !== firstNote.noteName,
+  )
+  const secondNote = pickQuestionNote(differentCandidates, random)
+
+  return [firstNote, secondNote]
+}
+
+function pickQuestionNote(candidates: number[], random: () => number) {
+  const midiNote = candidates[getRandomIndex(candidates.length, random)]
+  const noteName = getNoteNameFromMidiNote(midiNote)
+  const octave = Math.floor(midiNote / 12) - 1
+
+  return {
+    noteName,
+    octave,
+    midiNote,
+    frequency: getFrequencyFromMidiNote(midiNote),
+  }
+}
+
+function normalizeNoteNames(noteNames: string[]) {
+  return [...new Set(noteNames)].sort(
+    (a, b) => pitchAnswerOptions.indexOf(a) - pitchAnswerOptions.indexOf(b),
+  )
 }
 
 function getNoteNameFromMidiNote(midiNote: number) {
