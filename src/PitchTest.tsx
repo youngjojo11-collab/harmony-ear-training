@@ -3,16 +3,30 @@ import { playSineTone } from './audioEngine'
 import {
   checkPitchAnswer,
   createPitchQuestion,
+  getAverageResponseTimeMs,
+  initialPitchStatsByNote,
   pitchAnswerOptions,
+  pitchModeOptions,
+  pitchRangeOptions,
+  updatePitchStatsByNote,
+  type PitchRangeId,
+  type PitchTestMode,
   type PitchTestResult,
+  type PitchTestSettings,
 } from './pitchTestLogic'
 
 export function PitchTest() {
-  const [question, setQuestion] = useState(() => createPitchQuestion())
+  const [settings, setSettings] = useState<PitchTestSettings>({
+    mode: 'white',
+    rangeId: 'c4-b4',
+  })
+  const [question, setQuestion] = useState(() => createPitchQuestion(settings))
   const [selectedNoteName, setSelectedNoteName] = useState('')
   const [result, setResult] = useState<PitchTestResult | null>(null)
   const [score, setScore] = useState(0)
   const [totalQuestions, setTotalQuestions] = useState(0)
+  const [responseTimesMs, setResponseTimesMs] = useState<number[]>([])
+  const [statsByNote, setStatsByNote] = useState(initialPitchStatsByNote)
 
   const accuracy = useMemo(() => {
     if (totalQuestions === 0) {
@@ -21,6 +35,23 @@ export function PitchTest() {
 
     return Math.round((score / totalQuestions) * 100)
   }, [score, totalQuestions])
+
+  const averageResponseTimeMs = useMemo(
+    () => getAverageResponseTimeMs(responseTimesMs),
+    [responseTimesMs],
+  )
+
+  function handleModeChange(mode: PitchTestMode) {
+    const nextSettings = { ...settings, mode }
+    setSettings(nextSettings)
+    resetCurrentQuestion(nextSettings)
+  }
+
+  function handleRangeChange(rangeId: PitchRangeId) {
+    const nextSettings = { ...settings, rangeId }
+    setSettings(nextSettings)
+    resetCurrentQuestion(nextSettings)
+  }
 
   function handleAnswer(noteName: string) {
     if (result) {
@@ -31,6 +62,10 @@ export function PitchTest() {
     setSelectedNoteName(noteName)
     setResult(nextResult)
     setTotalQuestions((current) => current + 1)
+    setResponseTimesMs((current) => [...current, nextResult.responseTimeMs])
+    setStatsByNote((current) =>
+      updatePitchStatsByNote(current, question, nextResult),
+    )
 
     if (nextResult.isCorrect) {
       setScore((current) => current + 1)
@@ -38,7 +73,11 @@ export function PitchTest() {
   }
 
   function handleNextQuestion() {
-    setQuestion(createPitchQuestion())
+    resetCurrentQuestion(settings)
+  }
+
+  function resetCurrentQuestion(nextSettings: PitchTestSettings) {
+    setQuestion(createPitchQuestion(nextSettings))
     setSelectedNoteName('')
     setResult(null)
   }
@@ -49,19 +88,73 @@ export function PitchTest() {
         <p className="eyebrow">Absolute Pitch</p>
         <h1 id="pitch-title">절대음감 테스트</h1>
         <p className="hero-copy">
-          C4부터 B5까지의 단음이 랜덤으로 출제됩니다. 기준음 없이 들리는
-          음이름을 선택합니다.
+          선택한 난이도와 음역 안에서 단음이 랜덤으로 출제됩니다. 기준음
+          없이 들리는 음이름을 선택합니다.
         </p>
+      </section>
+
+      <section className="scale-panel" aria-label="난이도 설정">
+        <div className="section-heading">
+          <h2>난이도 설정</h2>
+          <p>모드와 음역</p>
+        </div>
+
+        <div className="settings-stack">
+          <div>
+            <span className="setting-label">모드</span>
+            <div className="view-toggle compact-toggle" role="group" aria-label="모드">
+              {pitchModeOptions.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className={
+                    settings.mode === mode.id
+                      ? 'view-button selected'
+                      : 'view-button'
+                  }
+                  onClick={() => handleModeChange(mode.id)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="setting-label">음역</span>
+            <div className="range-grid" role="group" aria-label="음역">
+              {pitchRangeOptions.map((range) => (
+                <button
+                  key={range.id}
+                  type="button"
+                  className={
+                    settings.rangeId === range.id
+                      ? 'key-button selected'
+                      : 'key-button'
+                  }
+                  onClick={() => handleRangeChange(range.id)}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="scale-panel quiz-panel" aria-label="단음 테스트">
         <div className="section-heading">
           <div>
             <h2>단음 테스트</h2>
-            <p>기준음 없음 / C4~B5 범위</p>
+            <p>같은 음이 연속으로 나올 수 있습니다.</p>
           </div>
-          <div className="quiz-score" aria-label="정답률과 총 문제 수">
-            {accuracy}% / {totalQuestions}
+          <div className="pitch-metrics">
+            <div className="quiz-score" aria-label="정답률과 총 문제 수">
+              {accuracy}% / {totalQuestions}
+            </div>
+            <div className="response-time">
+              평균 {formatResponseTime(averageResponseTimeMs)}
+            </div>
           </div>
         </div>
 
@@ -118,6 +211,7 @@ export function PitchTest() {
             <span>
               선택한 답: {selectedNoteName} / 정답: {result.correctAnswer}
             </span>
+            <span>응답시간: {formatResponseTime(result.responseTimeMs)}</span>
           </div>
         )}
 
@@ -130,6 +224,35 @@ export function PitchTest() {
           다음 문제
         </button>
       </section>
+
+      <section className="scale-panel" aria-label="음별 정답률">
+        <div className="section-heading">
+          <h2>음별 정답률</h2>
+          <p>현재 세션 기준</p>
+        </div>
+        <div className="note-stats-grid">
+          {pitchAnswerOptions.map((noteName) => {
+            const stat = statsByNote[noteName]
+            const noteAccuracy =
+              stat.attempts === 0
+                ? 0
+                : Math.round((stat.correct / stat.attempts) * 100)
+
+            return (
+              <div key={noteName} className="note-stat-card">
+                <strong>{noteName}</strong>
+                <span>
+                  {noteAccuracy}% ({stat.correct}/{stat.attempts})
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
     </main>
   )
+}
+
+function formatResponseTime(responseTimeMs: number) {
+  return `${(responseTimeMs / 1000).toFixed(1)}초`
 }
