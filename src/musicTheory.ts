@@ -28,6 +28,19 @@ export type PitchClassOption = {
   pitchClass: number
 }
 
+export type ChordType = {
+  id: string
+  label: string
+  intervals: number[]
+  formula: string[]
+}
+
+export type ChordTone = {
+  note: string
+  formula: string
+  pitchClass: number
+}
+
 export const scaleModeOptions: Array<{
   mode: ScaleMode
   label: string
@@ -75,6 +88,18 @@ export const pitchClassOptions: PitchClassOption[] = chromaticKeys.map(
     pitchClass,
   }),
 )
+
+export const chordTypes: ChordType[] = [
+  { id: 'major', label: 'Major', intervals: [0, 4, 7], formula: ['1', '3', '5'] },
+  { id: 'minor', label: 'minor', intervals: [0, 3, 7], formula: ['1', 'b3', '5'] },
+  { id: 'dim', label: 'dim', intervals: [0, 3, 6], formula: ['1', 'b3', 'b5'] },
+  { id: 'aug', label: 'aug', intervals: [0, 4, 8], formula: ['1', '3', '#5'] },
+  { id: 'sus2', label: 'sus2', intervals: [0, 2, 7], formula: ['1', '2', '5'] },
+  { id: 'sus4', label: 'sus4', intervals: [0, 5, 7], formula: ['1', '4', '5'] },
+  { id: '7', label: '7', intervals: [0, 4, 7, 10], formula: ['1', '3', '5', 'b7'] },
+  { id: 'maj7', label: 'maj7', intervals: [0, 4, 7, 11], formula: ['1', '3', '5', '7'] },
+  { id: 'm7', label: 'm7', intervals: [0, 3, 7, 10], formula: ['1', 'b3', '5', 'b7'] },
+]
 
 export const keyOptions: KeyOption[] = [
   { label: 'C', tonic: 'C' },
@@ -147,6 +172,43 @@ export function getScaleModeFullLabel(mode: ScaleMode) {
     scaleModeOptions.find((option) => option.mode === mode)?.fullLabel ??
     'Major Scale'
   )
+}
+
+export function getChord(rootPitchClass: number, chordTypeId: string): ChordTone[] {
+  const chordType = getChordType(chordTypeId)
+
+  return chordType.intervals.map((interval, index) => {
+    const pitchClass = normalizePitchClass(rootPitchClass + interval)
+
+    return {
+      note: getPitchClassLabel(pitchClass),
+      formula: chordType.formula[index],
+      pitchClass,
+    }
+  })
+}
+
+export function getChordType(chordTypeId: string) {
+  const chordType = chordTypes.find((type) => type.id === chordTypeId)
+
+  if (!chordType) {
+    throw new Error(`Invalid chord type: ${chordTypeId}`)
+  }
+
+  return chordType
+}
+
+export function getPitchClassLabel(pitchClass: number) {
+  const normalizedPitchClass = normalizePitchClass(pitchClass)
+  const option = pitchClassOptions.find(
+    (item) => item.pitchClass === normalizedPitchClass,
+  )
+
+  if (!option) {
+    throw new Error(`Invalid pitch class: ${pitchClass}`)
+  }
+
+  return option.label
 }
 
 export function getPitchClass(note: string) {

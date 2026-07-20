@@ -1,18 +1,19 @@
 import type { CSSProperties } from 'react'
-import type { PianoKey, ScaleDegree } from './musicTheory'
+import type { PianoKey } from './musicTheory'
 
-type HighlightedScaleNote = ScaleDegree & {
+export type HighlightedPianoNote = {
   pitchClass: number
+  label: string
 }
 
 type PianoKeyboardProps = {
   keys: PianoKey[]
-  scaleNotes: HighlightedScaleNote[]
+  highlightedNotes: HighlightedPianoNote[]
 }
 
-export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
-  const scaleByPitchClass = new Map(
-    scaleNotes.map((scaleNote) => [scaleNote.pitchClass, scaleNote]),
+export function PianoKeyboard({ keys, highlightedNotes }: PianoKeyboardProps) {
+  const highlightByPitchClass = new Map(
+    highlightedNotes.map((note) => [note.pitchClass, note]),
   )
   const whiteKeys = keys.filter((key) => !key.isBlack)
   const blackKeys = keys
@@ -24,16 +25,16 @@ export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
     <div className="piano-keyboard" aria-label="2옥타브 가상 피아노 건반">
       <div className="white-keys">
         {whiteKeys.map((key) => {
-          const scaleNote = scaleByPitchClass.get(key.pitchClass)
+          const highlightedNote = highlightByPitchClass.get(key.pitchClass)
 
           return (
             <div
               key={key.id}
-              className={scaleNote ? 'piano-key white active' : 'piano-key white'}
+              className={
+                highlightedNote ? 'piano-key white active' : 'piano-key white'
+              }
             >
-              <span className="piano-degree">
-                {scaleNote ? `${scaleNote.degree}도` : ''}
-              </span>
+              <span className="piano-degree">{highlightedNote?.label ?? ''}</span>
               <span className="piano-note">{key.note}</span>
             </div>
           )
@@ -42,7 +43,7 @@ export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
 
       <div className="black-keys" aria-hidden="true">
         {blackKeys.map(({ key, index }) => {
-          const scaleNote = scaleByPitchClass.get(key.pitchClass)
+          const highlightedNote = highlightByPitchClass.get(key.pitchClass)
           const previousWhiteCount = keys
             .slice(0, index)
             .filter((item) => !item.isBlack).length
@@ -51,16 +52,16 @@ export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
           return (
             <div
               key={key.id}
-              className={scaleNote ? 'piano-key black active' : 'piano-key black'}
+              className={
+                highlightedNote ? 'piano-key black active' : 'piano-key black'
+              }
               style={
                 {
                   '--black-key-left': `${leftPercent}%`,
                 } as CSSProperties
               }
             >
-              <span className="piano-degree">
-                {scaleNote ? `${scaleNote.degree}도` : ''}
-              </span>
+              <span className="piano-degree">{highlightedNote?.label ?? ''}</span>
               <span className="piano-note">{key.label}</span>
             </div>
           )

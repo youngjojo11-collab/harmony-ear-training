@@ -76,6 +76,7 @@
 .back-button:focus-visible,
 .key-button:focus-visible,
 .mode-button:focus-visible,
+.view-button:focus-visible,
 .answer-button:focus-visible,
 .next-question-button:focus-visible {
   outline: 3px solid rgb(37 99 235 / 28%);
@@ -204,6 +205,13 @@
   border-radius: 8px;
 }
 
+.view-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.view-button,
 .mode-button {
   min-height: 42px;
   padding: 9px 14px;
@@ -215,6 +223,13 @@
   font-weight: 800;
 }
 
+.view-button {
+  min-height: 50px;
+  background: var(--status-bg);
+  border-color: var(--status-border);
+}
+
+.view-button.selected,
 .mode-button.selected {
   color: #ffffff;
   background: var(--accent);
@@ -224,6 +239,12 @@
 .key-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chord-type-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -263,6 +284,10 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.chord-tone-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
 .degree-label {
@@ -525,6 +550,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .chord-type-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .mode-toggle {
     width: 100%;
   }
@@ -570,6 +599,11 @@
 
   .key-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .view-toggle,
+  .chord-type-grid {
+    grid-template-columns: 1fr;
   }
 
   .mode-toggle {
