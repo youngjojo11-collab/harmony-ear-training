@@ -1,4 +1,4 @@
-export type PitchTestMode = 'white' | 'chromatic'
+export type PitchTestMode = 'white' | 'black' | 'chromatic'
 export type PitchRangeId = 'c2-b2' | 'c3-b3' | 'c4-b4' | 'c5-b5'
 export type PitchQuestionType = 'single' | 'dyad' | 'sequence'
 
@@ -66,6 +66,7 @@ export const pitchModeOptions: Array<{
   label: string
 }> = [
   { id: 'white', label: '흰건반만' },
+  { id: 'black', label: '검은건반만' },
   { id: 'chromatic', label: '12음 전체' },
 ]
 
@@ -84,6 +85,7 @@ export const pitchRangeOptions: Array<{
 export const allPitchRangeIds = pitchRangeOptions.map((range) => range.id)
 
 const whiteKeyNoteNames = new Set(['C', 'D', 'E', 'F', 'G', 'A', 'B'])
+const blackKeyNoteNames = new Set(['C#', 'D#', 'F#', 'G#', 'A#'])
 
 export const initialPitchStatsByNote: PitchStatsByNote =
   pitchAnswerOptions.reduce<PitchStatsByNote>((stats, noteName) => {
@@ -223,13 +225,19 @@ function getQuestionCandidates(settings: PitchTestSettings) {
 
   return [...candidateSet]
     .sort((a, b) => a - b)
-    .filter((midiNote) => {
-      if (settings.mode === 'chromatic') {
-        return true
-      }
+    .filter((midiNote) => isAllowedByMode(getNoteNameFromMidiNote(midiNote), settings.mode))
+}
 
-      return whiteKeyNoteNames.has(getNoteNameFromMidiNote(midiNote))
-    })
+function isAllowedByMode(noteName: string, mode: PitchTestMode) {
+  if (mode === 'chromatic') {
+    return true
+  }
+
+  if (mode === 'black') {
+    return blackKeyNoteNames.has(noteName)
+  }
+
+  return whiteKeyNoteNames.has(noteName)
 }
 
 function pickDifferentNotes(candidates: number[], random: () => number) {

@@ -240,6 +240,11 @@
   width: min(420px, 100%);
 }
 
+.pitch-mode-toggle {
+  width: min(620px, 100%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .view-button,
 .mode-button {
   min-height: 42px;

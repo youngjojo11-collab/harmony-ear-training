@@ -283,7 +283,11 @@ export function PitchTest() {
 
           <div>
             <span className="setting-label">모드</span>
-            <div className="view-toggle compact-toggle" role="group" aria-label="모드">
+            <div
+              className="view-toggle compact-toggle pitch-mode-toggle"
+              role="group"
+              aria-label="모드"
+            >
               {pitchModeOptions.map((mode) => (
                 <button
                   key={mode.id}
