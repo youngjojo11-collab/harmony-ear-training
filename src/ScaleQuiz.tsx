@@ -36,26 +36,68 @@ export function ScaleQuiz() {
     )
   }, [selectedPitchClass])
 
+  function applyQuizRange(nextRange: ScaleQuizRange) {
+    setQuizRange(nextRange)
+
+    if (!canCreateScaleQuizQuestion(nextRange)) {
+      if (!result) {
+        setSelectedPitchClass(null)
+      }
+      return
+    }
+
+    if (!result) {
+      setQuestion(createScaleQuizQuestion(nextRange))
+      setSelectedPitchClass(null)
+    }
+  }
+
   function handleToggleKey(tonic: string) {
-    setQuizRange((current) => ({
-      ...current,
-      tonics: current.tonics.includes(tonic)
-        ? current.tonics.filter((item) => item !== tonic)
-        : [...current.tonics, tonic],
-    }))
+    const nextRange = {
+      ...quizRange,
+      tonics: quizRange.tonics.includes(tonic)
+        ? quizRange.tonics.filter((item) => item !== tonic)
+        : [...quizRange.tonics, tonic],
+    }
+
+    applyQuizRange(nextRange)
   }
 
   function handleToggleMode(mode: ScaleQuizRange['modes'][number]) {
-    setQuizRange((current) => ({
-      ...current,
-      modes: current.modes.includes(mode)
-        ? current.modes.filter((item) => item !== mode)
-        : [...current.modes, mode],
-    }))
+    const nextRange = {
+      ...quizRange,
+      modes: quizRange.modes.includes(mode)
+        ? quizRange.modes.filter((item) => item !== mode)
+        : [...quizRange.modes, mode],
+    }
+
+    applyQuizRange(nextRange)
+  }
+
+  function handleSelectAllKeys() {
+    applyQuizRange({
+      ...quizRange,
+      tonics: keyOptions.map((key) => key.tonic),
+    })
+  }
+
+  function handleClearAllKeys() {
+    applyQuizRange({ ...quizRange, tonics: [] })
+  }
+
+  function handleSelectAllModes() {
+    applyQuizRange({
+      ...quizRange,
+      modes: scaleModeOptions.map((modeOption) => modeOption.mode),
+    })
+  }
+
+  function handleClearAllModes() {
+    applyQuizRange({ ...quizRange, modes: [] })
   }
 
   function handleAnswer(pitchClass: number) {
-    if (result) {
+    if (result || !canCreateQuestion) {
       return
     }
 
@@ -99,21 +141,14 @@ export function ScaleQuiz() {
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    tonics: keyOptions.map((key) => key.tonic),
-                  }))
-                }
+                onClick={handleSelectAllKeys}
               >
                 전체 선택
               </button>
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({ ...current, tonics: [] }))
-                }
+                onClick={handleClearAllKeys}
               >
                 전체 해제
               </button>
@@ -143,21 +178,14 @@ export function ScaleQuiz() {
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    modes: scaleModeOptions.map((modeOption) => modeOption.mode),
-                  }))
-                }
+                onClick={handleSelectAllModes}
               >
                 전체 선택
               </button>
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({ ...current, modes: [] }))
-                }
+                onClick={handleClearAllModes}
               >
                 전체 해제
               </button>
@@ -187,40 +215,44 @@ export function ScaleQuiz() {
         )}
       </div>
 
-      <div className="quiz-question">
-        <span className="quiz-label">문제</span>
-        <strong>
-          {question.keyLabel} {question.modeLabel}의 {question.degree}도는?
-        </strong>
-      </div>
+      {canCreateQuestion && (
+        <>
+          <div className="quiz-question">
+            <span className="quiz-label">문제</span>
+            <strong>
+              {question.keyLabel} {question.modeLabel}의 {question.degree}도는?
+            </strong>
+          </div>
 
-      <div className="answer-grid" aria-label="답 선택">
-        {pitchClassOptions.map((option) => {
-          const isSelected = selectedPitchClass === option.pitchClass
-          const isCorrectAnswer =
-            result && option.pitchClass === question.answerPitchClass
-          const answerClassName = [
-            'answer-button',
-            isSelected ? 'selected' : '',
-            isCorrectAnswer ? 'correct' : '',
-            result && isSelected && !result.isCorrect ? 'incorrect' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
+          <div className="answer-grid" aria-label="답 선택">
+            {pitchClassOptions.map((option) => {
+              const isSelected = selectedPitchClass === option.pitchClass
+              const isCorrectAnswer =
+                result && option.pitchClass === question.answerPitchClass
+              const answerClassName = [
+                'answer-button',
+                isSelected ? 'selected' : '',
+                isCorrectAnswer ? 'correct' : '',
+                result && isSelected && !result.isCorrect ? 'incorrect' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
 
-          return (
-            <button
-              key={option.pitchClass}
-              type="button"
-              className={answerClassName}
-              disabled={Boolean(result)}
-              onClick={() => handleAnswer(option.pitchClass)}
-            >
-              {option.label}
-            </button>
-          )
-        })}
-      </div>
+              return (
+                <button
+                  key={option.pitchClass}
+                  type="button"
+                  className={answerClassName}
+                  disabled={Boolean(result)}
+                  onClick={() => handleAnswer(option.pitchClass)}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {result && (
         <div

@@ -29,26 +29,68 @@ export function ChordQuiz() {
     [selectedPitchClasses],
   )
 
+  function applyQuizRange(nextRange: ChordQuizRange) {
+    setQuizRange(nextRange)
+
+    if (!canCreateChordQuizQuestion(nextRange)) {
+      if (!result) {
+        setSelectedPitchClasses([])
+      }
+      return
+    }
+
+    if (!result) {
+      setQuestion(createChordQuizQuestion(nextRange))
+      setSelectedPitchClasses([])
+    }
+  }
+
   function handleToggleRoot(pitchClass: number) {
-    setQuizRange((current) => ({
-      ...current,
-      rootPitchClasses: current.rootPitchClasses.includes(pitchClass)
-        ? current.rootPitchClasses.filter((item) => item !== pitchClass)
-        : [...current.rootPitchClasses, pitchClass],
-    }))
+    const nextRange = {
+      ...quizRange,
+      rootPitchClasses: quizRange.rootPitchClasses.includes(pitchClass)
+        ? quizRange.rootPitchClasses.filter((item) => item !== pitchClass)
+        : [...quizRange.rootPitchClasses, pitchClass],
+    }
+
+    applyQuizRange(nextRange)
   }
 
   function handleToggleChordType(chordTypeId: string) {
-    setQuizRange((current) => ({
-      ...current,
-      chordTypeIds: current.chordTypeIds.includes(chordTypeId)
-        ? current.chordTypeIds.filter((item) => item !== chordTypeId)
-        : [...current.chordTypeIds, chordTypeId],
-    }))
+    const nextRange = {
+      ...quizRange,
+      chordTypeIds: quizRange.chordTypeIds.includes(chordTypeId)
+        ? quizRange.chordTypeIds.filter((item) => item !== chordTypeId)
+        : [...quizRange.chordTypeIds, chordTypeId],
+    }
+
+    applyQuizRange(nextRange)
+  }
+
+  function handleSelectAllRoots() {
+    applyQuizRange({
+      ...quizRange,
+      rootPitchClasses: pitchClassOptions.map((option) => option.pitchClass),
+    })
+  }
+
+  function handleClearAllRoots() {
+    applyQuizRange({ ...quizRange, rootPitchClasses: [] })
+  }
+
+  function handleSelectAllChordTypes() {
+    applyQuizRange({
+      ...quizRange,
+      chordTypeIds: chordTypes.map((chordType) => chordType.id),
+    })
+  }
+
+  function handleClearAllChordTypes() {
+    applyQuizRange({ ...quizRange, chordTypeIds: [] })
   }
 
   function handleToggleAnswer(pitchClass: number) {
-    if (result) {
+    if (result || !canCreateQuestion) {
       return
     }
 
@@ -60,7 +102,7 @@ export function ChordQuiz() {
   }
 
   function handleSubmit() {
-    if (result || selectedPitchClasses.length === 0) {
+    if (result || !canCreateQuestion || selectedPitchClasses.length === 0) {
       return
     }
 
@@ -103,26 +145,14 @@ export function ChordQuiz() {
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    rootPitchClasses: pitchClassOptions.map(
-                      (option) => option.pitchClass,
-                    ),
-                  }))
-                }
+                onClick={handleSelectAllRoots}
               >
                 전체 선택
               </button>
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    rootPitchClasses: [],
-                  }))
-                }
+                onClick={handleClearAllRoots}
               >
                 전체 해제
               </button>
@@ -156,24 +186,14 @@ export function ChordQuiz() {
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    chordTypeIds: chordTypes.map((chordType) => chordType.id),
-                  }))
-                }
+                onClick={handleSelectAllChordTypes}
               >
                 전체 선택
               </button>
               <button
                 type="button"
                 className="bulk-action-button"
-                onClick={() =>
-                  setQuizRange((current) => ({
-                    ...current,
-                    chordTypeIds: [],
-                  }))
-                }
+                onClick={handleClearAllChordTypes}
               >
                 전체 해제
               </button>
@@ -203,43 +223,48 @@ export function ChordQuiz() {
         )}
       </div>
 
-      <div className="quiz-question">
-        <span className="quiz-label">문제</span>
-        <strong>{question.chordSymbol}의 구성음은?</strong>
-      </div>
+      {canCreateQuestion && (
+        <>
+          <div className="quiz-question">
+            <span className="quiz-label">문제</span>
+            <strong>{question.chordSymbol}의 구성음은?</strong>
+          </div>
 
-      <div className="selected-notes" aria-label="선택한 음">
-        선택한 음: {selectedNotes.length > 0 ? selectedNotes.join(' - ') : '없음'}
-      </div>
+          <div className="selected-notes" aria-label="선택한 음">
+            선택한 음:{' '}
+            {selectedNotes.length > 0 ? selectedNotes.join(' - ') : '없음'}
+          </div>
 
-      <div className="answer-grid" aria-label="구성음 선택">
-        {pitchClassOptions.map((option) => {
-          const isSelected = selectedPitchClasses.includes(option.pitchClass)
-          const isCorrectAnswer = question.answerPitchClasses.includes(
-            option.pitchClass,
-          )
-          const answerClassName = [
-            'answer-button',
-            isSelected ? 'selected' : '',
-            result && isCorrectAnswer ? 'correct' : '',
-            result && isSelected && !isCorrectAnswer ? 'incorrect' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
+          <div className="answer-grid" aria-label="구성음 선택">
+            {pitchClassOptions.map((option) => {
+              const isSelected = selectedPitchClasses.includes(option.pitchClass)
+              const isCorrectAnswer = question.answerPitchClasses.includes(
+                option.pitchClass,
+              )
+              const answerClassName = [
+                'answer-button',
+                isSelected ? 'selected' : '',
+                result && isCorrectAnswer ? 'correct' : '',
+                result && isSelected && !isCorrectAnswer ? 'incorrect' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
 
-          return (
-            <button
-              key={option.pitchClass}
-              type="button"
-              className={answerClassName}
-              disabled={Boolean(result)}
-              onClick={() => handleToggleAnswer(option.pitchClass)}
-            >
-              {option.label}
-            </button>
-          )
-        })}
-      </div>
+              return (
+                <button
+                  key={option.pitchClass}
+                  type="button"
+                  className={answerClassName}
+                  disabled={Boolean(result)}
+                  onClick={() => handleToggleAnswer(option.pitchClass)}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {result && (
         <div
@@ -257,7 +282,9 @@ export function ChordQuiz() {
         <button
           type="button"
           className="submit-answer-button"
-          disabled={Boolean(result) || selectedPitchClasses.length === 0}
+          disabled={
+            Boolean(result) || !canCreateQuestion || selectedPitchClasses.length === 0
+          }
           onClick={handleSubmit}
         >
           제출
