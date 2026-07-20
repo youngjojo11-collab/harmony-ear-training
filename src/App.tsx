@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import './App.css'
 import { ChordQuiz } from './ChordQuiz'
 import { PianoKeyboard } from './PianoKeyboard'
+import { PitchTest } from './PitchTest'
 import { ScaleQuiz } from './ScaleQuiz'
 import {
   chordTypes,
@@ -18,13 +19,14 @@ import {
   type ScaleMode,
 } from './musicTheory'
 
-type Screen = 'home' | 'theory'
+type Screen = 'home' | 'theory' | 'pitch'
 type TheoryView = 'scale' | 'chord'
 
 type LearningMenu = {
   title: string
   description: string
   accent: string
+  status: string
   disabled?: boolean
   onSelect?: () => void
 }
@@ -71,21 +73,39 @@ function App() {
       title: '화성학 학습',
       description: '음정, 코드, 진행을 체계적으로 익히는 학습 공간',
       accent: 'theory',
+      status: '학습 시작',
       onSelect: () => setScreen('theory'),
     },
     {
       title: '청음 훈련',
       description: '멜로디와 화음을 듣고 구분하는 반복 훈련 공간',
       accent: 'ear',
+      status: '준비 중',
       disabled: true,
     },
     {
       title: '절대음감 테스트',
-      description: '단일 음을 듣고 음높이를 판별하는 테스트 공간',
+      description: '기준음 없이 단음을 듣고 음이름을 판별하는 테스트 공간',
       accent: 'pitch',
-      disabled: true,
+      status: '테스트 시작',
+      onSelect: () => setScreen('pitch'),
     },
   ]
+
+  if (screen === 'pitch') {
+    return (
+      <>
+        <button
+          type="button"
+          className="floating-back-button"
+          onClick={() => setScreen('home')}
+        >
+          이전 화면으로
+        </button>
+        <PitchTest />
+      </>
+    )
+  }
 
   if (screen === 'theory') {
     return (
@@ -330,9 +350,7 @@ function App() {
               <span className="menu-title">{menu.title}</span>
               <span className="menu-description">{menu.description}</span>
             </span>
-            <span className="menu-status">
-              {menu.disabled ? '준비 중' : '학습 시작'}
-            </span>
+            <span className="menu-status">{menu.status}</span>
           </button>
         ))}
       </nav>
