@@ -17,6 +17,11 @@ export type PianoKey = {
   isBlack: boolean
 }
 
+export type PitchClassOption = {
+  label: string
+  pitchClass: number
+}
+
 const majorScaleIntervals = [0, 2, 4, 5, 7, 9, 11]
 
 const naturalPitchClasses: Record<string, number> = {
@@ -45,6 +50,13 @@ const chromaticKeys = [
   { note: 'A#', label: 'A#/Bb', pitchClass: 10, isBlack: true },
   { note: 'B', label: 'B', pitchClass: 11, isBlack: false },
 ]
+
+export const pitchClassOptions: PitchClassOption[] = chromaticKeys.map(
+  ({ label, pitchClass }) => ({
+    label,
+    pitchClass,
+  }),
+)
 
 export const keyOptions: KeyOption[] = [
   { label: 'C', tonic: 'C' },

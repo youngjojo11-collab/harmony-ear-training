@@ -15,7 +15,9 @@ export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
     scaleNotes.map((scaleNote) => [scaleNote.pitchClass, scaleNote]),
   )
   const whiteKeys = keys.filter((key) => !key.isBlack)
-  const blackKeys = keys.filter((key) => key.isBlack)
+  const blackKeys = keys
+    .map((key, index) => ({ key, index }))
+    .filter(({ key }) => key.isBlack)
   const whiteKeyCount = whiteKeys.length
 
   return (
@@ -39,10 +41,10 @@ export function PianoKeyboard({ keys, scaleNotes }: PianoKeyboardProps) {
       </div>
 
       <div className="black-keys" aria-hidden="true">
-        {blackKeys.map((key) => {
+        {blackKeys.map(({ key, index }) => {
           const scaleNote = scaleByPitchClass.get(key.pitchClass)
           const previousWhiteCount = keys
-            .slice(0, keys.indexOf(key))
+            .slice(0, index)
             .filter((item) => !item.isBlack).length
           const leftPercent = (previousWhiteCount / whiteKeyCount) * 100
 

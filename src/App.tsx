@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 import { PianoKeyboard } from './PianoKeyboard'
+import { ScaleQuiz } from './ScaleQuiz'
 import {
   getMajorScale,
   getMajorScalePitchClasses,
@@ -118,6 +119,8 @@ function App() {
             scaleNotes={highlightedScaleNotes}
           />
         </section>
+
+        <ScaleQuiz />
       </main>
     )
   }
