@@ -8,6 +8,15 @@ export type ScaleDegree = {
   note: string
 }
 
+export type PianoKey = {
+  id: string
+  note: string
+  label: string
+  octave: number
+  pitchClass: number
+  isBlack: boolean
+}
+
 const majorScaleIntervals = [0, 2, 4, 5, 7, 9, 11]
 
 const naturalPitchClasses: Record<string, number> = {
@@ -21,6 +30,21 @@ const naturalPitchClasses: Record<string, number> = {
 }
 
 const letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+
+const chromaticKeys = [
+  { note: 'C', label: 'C', pitchClass: 0, isBlack: false },
+  { note: 'C#', label: 'C#/Db', pitchClass: 1, isBlack: true },
+  { note: 'D', label: 'D', pitchClass: 2, isBlack: false },
+  { note: 'D#', label: 'D#/Eb', pitchClass: 3, isBlack: true },
+  { note: 'E', label: 'E', pitchClass: 4, isBlack: false },
+  { note: 'F', label: 'F', pitchClass: 5, isBlack: false },
+  { note: 'F#', label: 'F#/Gb', pitchClass: 6, isBlack: true },
+  { note: 'G', label: 'G', pitchClass: 7, isBlack: false },
+  { note: 'G#', label: 'G#/Ab', pitchClass: 8, isBlack: true },
+  { note: 'A', label: 'A', pitchClass: 9, isBlack: false },
+  { note: 'A#', label: 'A#/Bb', pitchClass: 10, isBlack: true },
+  { note: 'B', label: 'B', pitchClass: 11, isBlack: false },
+]
 
 export const keyOptions: KeyOption[] = [
   { label: 'C', tonic: 'C' },
@@ -55,6 +79,30 @@ export function getMajorScale(tonic: string): ScaleDegree[] {
       note: `${scaleLetter}${formatAccidental(accidentalOffset)}`,
     }
   })
+}
+
+export function getMajorScalePitchClasses(tonic: string) {
+  return getMajorScale(tonic).map((scaleNote) => ({
+    ...scaleNote,
+    pitchClass: getPitchClass(scaleNote.note),
+  }))
+}
+
+export function getTwoOctavePianoKeys(startOctave = 4): PianoKey[] {
+  return Array.from({ length: 24 }, (_, index) => {
+    const key = chromaticKeys[index % chromaticKeys.length]
+    const octave = startOctave + Math.floor(index / chromaticKeys.length)
+
+    return {
+      ...key,
+      octave,
+      id: `${key.note}${octave}`,
+    }
+  })
+}
+
+export function getPitchClass(note: string) {
+  return parseNote(note).pitchClass
 }
 
 function parseNote(note: string) {

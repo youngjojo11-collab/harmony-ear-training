@@ -247,6 +247,98 @@
   line-height: 1.1;
 }
 
+.piano-panel {
+  overflow-x: auto;
+}
+
+.piano-keyboard {
+  position: relative;
+  min-width: 760px;
+  height: 260px;
+  padding-top: 2px;
+}
+
+.white-keys {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  height: 100%;
+}
+
+.black-keys {
+  position: absolute;
+  inset: 2px 0 auto;
+  height: 62%;
+  pointer-events: none;
+}
+
+.piano-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.piano-key.white {
+  min-width: 0;
+  padding: 18px 6px;
+  color: var(--text-strong);
+  background: linear-gradient(180deg, #ffffff 0%, #f1f4f8 100%);
+  border: 1px solid #c8d0dc;
+  border-radius: 0 0 8px 8px;
+}
+
+.piano-key.white + .piano-key.white {
+  border-left: 0;
+}
+
+.piano-key.black {
+  position: absolute;
+  left: var(--black-key-left);
+  width: 4.8%;
+  height: 100%;
+  padding: 12px 4px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #121620 0%, #03050a 100%);
+  border: 1px solid #000000;
+  border-radius: 0 0 7px 7px;
+  box-shadow: 0 8px 14px rgb(0 0 0 / 28%);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.piano-key.active.white {
+  background: linear-gradient(180deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #2563eb;
+}
+
+.piano-key.active.black {
+  background: linear-gradient(180deg, #1d4ed8 0%, #172554 100%);
+  border-color: #60a5fa;
+}
+
+.piano-degree {
+  min-height: 18px;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.piano-key.black .piano-degree {
+  color: #bfdbfe;
+}
+
+.piano-note {
+  font-size: 15px;
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
+.piano-key.black .piano-note {
+  font-size: 11px;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     padding: 44px 20px;
@@ -287,6 +379,11 @@
   .degree-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .piano-keyboard {
+    min-width: 700px;
+    height: 230px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -316,5 +413,10 @@
 
   .degree-grid {
     grid-template-columns: 1fr;
+  }
+
+  .piano-keyboard {
+    min-width: 640px;
+    height: 210px;
   }
 }

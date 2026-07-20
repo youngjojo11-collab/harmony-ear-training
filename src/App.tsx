@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import './App.css'
-import { getMajorScale, keyOptions } from './musicTheory'
+import { PianoKeyboard } from './PianoKeyboard'
+import {
+  getMajorScale,
+  getMajorScalePitchClasses,
+  getTwoOctavePianoKeys,
+  keyOptions,
+} from './musicTheory'
 
 type Screen = 'home' | 'scale'
 
@@ -16,6 +22,11 @@ function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [selectedKey, setSelectedKey] = useState(keyOptions[0].tonic)
   const scaleNotes = useMemo(() => getMajorScale(selectedKey), [selectedKey])
+  const highlightedScaleNotes = useMemo(
+    () => getMajorScalePitchClasses(selectedKey),
+    [selectedKey],
+  )
+  const pianoKeys = useMemo(() => getTwoOctavePianoKeys(), [])
 
   const menus: LearningMenu[] = [
     {
@@ -92,6 +103,20 @@ function App() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section
+          className="scale-panel piano-panel"
+          aria-label={`${selectedKey} Major Scale 피아노 건반`}
+        >
+          <div className="section-heading">
+            <h2>가상 피아노</h2>
+            <p>2옥타브 범위</p>
+          </div>
+          <PianoKeyboard
+            keys={pianoKeys}
+            scaleNotes={highlightedScaleNotes}
+          />
         </section>
       </main>
     )
