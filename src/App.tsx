@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import './App.css'
+import { ChordQuiz } from './ChordQuiz'
 import { PianoKeyboard } from './PianoKeyboard'
 import { ScaleQuiz } from './ScaleQuiz'
 import {
@@ -297,6 +298,8 @@ function App() {
                 highlightedNotes={highlightedChordNotes}
               />
             </section>
+
+            <ChordQuiz />
           </>
         )}
       </main>
