@@ -41,6 +41,7 @@ const pianoBuffers = new Map<number, AudioBuffer>()
 
 let audioContext: AudioContext | null = null
 let preloadPromise: Promise<void> | null = null
+let warnedNoSamples = false
 
 export async function preloadPianoSamples() {
   if (!preloadPromise) {
@@ -54,6 +55,15 @@ export async function playPianoNotes(midiNotes: number[], durationSeconds = 2) {
   const context = getAudioContext()
   await preloadPianoSamples()
   await context.resume()
+
+  if (pianoBuffers.size === 0) {
+    warnNoSamples()
+    await playSineTones(
+      midiNotes.map((midiNote) => getFrequencyFromMidiNote(midiNote)),
+      durationSeconds,
+    )
+    return
+  }
 
   const now = context.currentTime
   const peakGain = Math.min(0.34, 0.52 / midiNotes.length)
@@ -71,6 +81,16 @@ export async function playPianoNoteSequence(
   const context = getAudioContext()
   await preloadPianoSamples()
   await context.resume()
+
+  if (pianoBuffers.size === 0) {
+    warnNoSamples()
+    await playSineToneSequence(
+      midiNotes.map((midiNote) => getFrequencyFromMidiNote(midiNote)),
+      intervalSeconds,
+      durationSeconds,
+    )
+    return
+  }
 
   const now = context.currentTime
 
@@ -110,6 +130,31 @@ export async function playSineTones(
   })
 }
 
+export async function playSineToneSequence(
+  frequencies: number[],
+  intervalSeconds = 0.85,
+  durationSeconds = 1.45,
+) {
+  const context = getAudioContext()
+  await context.resume()
+
+  const now = context.currentTime
+  const outputGain = context.createGain()
+
+  outputGain.gain.setValueAtTime(0.24, now)
+  outputGain.connect(context.destination)
+
+  frequencies.forEach((frequency, index) => {
+    scheduleSineTone(
+      context,
+      outputGain,
+      frequency,
+      now + intervalSeconds * index,
+      durationSeconds,
+    )
+  })
+}
+
 function getAudioContext() {
   if (!audioContext) {
     const AudioContextClass = window.AudioContext ?? window.webkitAudioContext
@@ -122,7 +167,7 @@ function getAudioContext() {
 async function loadPianoSamples() {
   const context = getAudioContext()
 
-  await Promise.all(
+  await Promise.allSettled(
     pianoSamples.map(async (sample) => {
       if (pianoBuffers.has(sample.midiNote)) {
         return
@@ -133,14 +178,23 @@ async function loadPianoSamples() {
       )
 
       if (!response.ok) {
-        throw new Error(`Failed to load piano sample: ${sample.fileName}`)
+        console.warn(`Failed to load piano sample: ${sample.fileName}`)
+        return
       }
 
       const arrayBuffer = await response.arrayBuffer()
-      const audioBuffer = await context.decodeAudioData(arrayBuffer)
-      pianoBuffers.set(sample.midiNote, audioBuffer)
+      try {
+        const audioBuffer = await context.decodeAudioData(arrayBuffer)
+        pianoBuffers.set(sample.midiNote, audioBuffer)
+      } catch {
+        console.warn(`Failed to decode piano sample: ${sample.fileName}`)
+      }
     }),
   )
+
+  if (pianoBuffers.size === 0) {
+    warnNoSamples()
+  }
 }
 
 function schedulePianoNote(
@@ -150,11 +204,32 @@ function schedulePianoNote(
   durationSeconds: number,
   peakGain: number,
 ) {
-  const nearestSample = findNearestSample(midiNote)
+  const nearestSample = findNearestLoadedSample(midiNote)
+
+  if (!nearestSample) {
+    warnNoSamples()
+    scheduleSineTone(
+      context,
+      context.destination,
+      getFrequencyFromMidiNote(midiNote),
+      startAt,
+      durationSeconds,
+    )
+    return
+  }
+
   const buffer = pianoBuffers.get(nearestSample.midiNote)
 
   if (!buffer) {
-    throw new Error(`Missing decoded piano sample: ${nearestSample.fileName}`)
+    warnNoSamples()
+    scheduleSineTone(
+      context,
+      context.destination,
+      getFrequencyFromMidiNote(midiNote),
+      startAt,
+      durationSeconds,
+    )
+    return
   }
 
   const source = context.createBufferSource()
@@ -178,12 +253,33 @@ function schedulePianoNote(
   source.stop(stopAt + 0.02)
 }
 
-function findNearestSample(midiNote: number) {
-  return pianoSamples.reduce((nearest, sample) =>
+function findNearestLoadedSample(midiNote: number) {
+  const loadedSamples = pianoSamples.filter((sample) =>
+    pianoBuffers.has(sample.midiNote),
+  )
+
+  if (loadedSamples.length === 0) {
+    return null
+  }
+
+  return loadedSamples.reduce((nearest, sample) =>
     Math.abs(sample.midiNote - midiNote) < Math.abs(nearest.midiNote - midiNote)
       ? sample
       : nearest,
   )
+}
+
+function getFrequencyFromMidiNote(midiNote: number) {
+  return 440 * 2 ** ((midiNote - 69) / 12)
+}
+
+function warnNoSamples() {
+  if (warnedNoSamples) {
+    return
+  }
+
+  warnedNoSamples = true
+  console.warn('No piano samples could be loaded; falling back to sine wave.')
 }
 
 function scheduleSineTone(

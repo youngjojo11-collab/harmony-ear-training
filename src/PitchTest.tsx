@@ -38,9 +38,9 @@ export function PitchTest() {
   const [totalQuestions, setTotalQuestions] = useState(0)
   const [responseTimesMs, setResponseTimesMs] = useState<number[]>([])
   const [statsByNote, setStatsByNote] = useState(initialPitchStatsByNote)
-  const [sampleStatus, setSampleStatus] = useState<
-    'loading' | 'ready' | 'error'
-  >('loading')
+  const [sampleStatus, setSampleStatus] = useState<'loading' | 'ready'>(
+    'loading',
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -53,7 +53,7 @@ export function PitchTest() {
       })
       .catch(() => {
         if (isMounted) {
-          setSampleStatus('error')
+          setSampleStatus('ready')
         }
       })
 
@@ -313,13 +313,6 @@ export function PitchTest() {
         >
           {sampleStatus === 'loading' ? '피아노 샘플 로딩 중' : '음 재생'}
         </button>
-        {sampleStatus === 'error' && (
-          <div className="quiz-feedback incorrect" role="status">
-            <strong>샘플 로딩에 실패했습니다.</strong>
-            <span>로컬 피아노 샘플 파일을 확인해 주세요.</span>
-          </div>
-        )}
-
         <div className="selected-notes" aria-label="현재 입력된 음 순서">
           입력한 음: {selectedAnswerText}
         </div>
