@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react'
-import { playSineToneSequence, playSineTones } from './audioEngine'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  playPianoNoteSequence,
+  playPianoNotes,
+  preloadPianoSamples,
+} from './audioEngine'
 import {
   checkPitchAnswer,
   createPitchQuestion,
   getAverageResponseTimeMs,
   getQuestionAnswerNames,
-  getQuestionFrequencies,
+  getQuestionMidiNotes,
   initialPitchStatsByNote,
   pitchAnswerOptions,
   pitchModeOptions,
@@ -34,6 +38,29 @@ export function PitchTest() {
   const [totalQuestions, setTotalQuestions] = useState(0)
   const [responseTimesMs, setResponseTimesMs] = useState<number[]>([])
   const [statsByNote, setStatsByNote] = useState(initialPitchStatsByNote)
+  const [sampleStatus, setSampleStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading')
+
+  useEffect(() => {
+    let isMounted = true
+
+    preloadPianoSamples()
+      .then(() => {
+        if (isMounted) {
+          setSampleStatus('ready')
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSampleStatus('error')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const accuracy = useMemo(() => {
     if (totalQuestions === 0) {
@@ -135,14 +162,14 @@ export function PitchTest() {
   }
 
   function handlePlayQuestion() {
-    const frequencies = getQuestionFrequencies(question)
+    const midiNotes = getQuestionMidiNotes(question)
 
     if (isSequence) {
-      void playSineToneSequence(frequencies, 0.6)
+      void playPianoNoteSequence(midiNotes, 0.85, 1.45)
       return
     }
 
-    void playSineTones(frequencies)
+    void playPianoNotes(midiNotes, 2)
   }
 
   function handleNextQuestion() {
@@ -278,9 +305,20 @@ export function PitchTest() {
           <strong>{getQuestionPrompt(settings.questionType)}</strong>
         </div>
 
-        <button type="button" className="play-note-button" onClick={handlePlayQuestion}>
-          음 재생
+        <button
+          type="button"
+          className="play-note-button"
+          disabled={sampleStatus !== 'ready'}
+          onClick={handlePlayQuestion}
+        >
+          {sampleStatus === 'loading' ? '피아노 샘플 로딩 중' : '음 재생'}
         </button>
+        {sampleStatus === 'error' && (
+          <div className="quiz-feedback incorrect" role="status">
+            <strong>샘플 로딩에 실패했습니다.</strong>
+            <span>로컬 피아노 샘플 파일을 확인해 주세요.</span>
+          </div>
+        )}
 
         <div className="selected-notes" aria-label="현재 입력된 음 순서">
           입력한 음: {selectedAnswerText}

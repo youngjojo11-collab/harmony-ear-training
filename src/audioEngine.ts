@@ -1,3 +1,90 @@
+type PianoSample = {
+  midiNote: number
+  fileName: string
+}
+
+const pianoSamples: PianoSample[] = [
+  { midiNote: 21, fileName: 'A0v13.mp3' },
+  { midiNote: 24, fileName: 'C1v13.mp3' },
+  { midiNote: 27, fileName: 'D#1v13.mp3' },
+  { midiNote: 30, fileName: 'F#1v13.mp3' },
+  { midiNote: 33, fileName: 'A1v13.mp3' },
+  { midiNote: 36, fileName: 'C2v13.mp3' },
+  { midiNote: 39, fileName: 'D#2v13.mp3' },
+  { midiNote: 42, fileName: 'F#2v13.mp3' },
+  { midiNote: 45, fileName: 'A2v13.mp3' },
+  { midiNote: 48, fileName: 'C3v13.mp3' },
+  { midiNote: 51, fileName: 'D#3v13.mp3' },
+  { midiNote: 54, fileName: 'F#3v13.mp3' },
+  { midiNote: 57, fileName: 'A3v13.mp3' },
+  { midiNote: 60, fileName: 'C4v13.mp3' },
+  { midiNote: 63, fileName: 'D#4v13.mp3' },
+  { midiNote: 66, fileName: 'F#4v13.mp3' },
+  { midiNote: 69, fileName: 'A4v13.mp3' },
+  { midiNote: 72, fileName: 'C5v13.mp3' },
+  { midiNote: 75, fileName: 'D#5v13.mp3' },
+  { midiNote: 78, fileName: 'F#5v13.mp3' },
+  { midiNote: 81, fileName: 'A5v13.mp3' },
+  { midiNote: 84, fileName: 'C6v13.mp3' },
+  { midiNote: 87, fileName: 'D#6v13.mp3' },
+  { midiNote: 90, fileName: 'F#6v13.mp3' },
+  { midiNote: 93, fileName: 'A6v13.mp3' },
+  { midiNote: 96, fileName: 'C7v13.mp3' },
+  { midiNote: 99, fileName: 'D#7v13.mp3' },
+  { midiNote: 102, fileName: 'F#7v13.mp3' },
+  { midiNote: 105, fileName: 'A7v13.mp3' },
+  { midiNote: 108, fileName: 'C8v13.mp3' },
+]
+
+const sampleBasePath = '/samples/piano/'
+const pianoBuffers = new Map<number, AudioBuffer>()
+
+let audioContext: AudioContext | null = null
+let preloadPromise: Promise<void> | null = null
+
+export async function preloadPianoSamples() {
+  if (!preloadPromise) {
+    preloadPromise = loadPianoSamples()
+  }
+
+  return preloadPromise
+}
+
+export async function playPianoNotes(midiNotes: number[], durationSeconds = 2) {
+  const context = getAudioContext()
+  await preloadPianoSamples()
+  await context.resume()
+
+  const now = context.currentTime
+  const peakGain = Math.min(0.34, 0.52 / midiNotes.length)
+
+  midiNotes.forEach((midiNote) => {
+    schedulePianoNote(context, midiNote, now, durationSeconds, peakGain)
+  })
+}
+
+export async function playPianoNoteSequence(
+  midiNotes: number[],
+  intervalSeconds = 0.85,
+  durationSeconds = 1.45,
+) {
+  const context = getAudioContext()
+  await preloadPianoSamples()
+  await context.resume()
+
+  const now = context.currentTime
+
+  midiNotes.forEach((midiNote, index) => {
+    schedulePianoNote(
+      context,
+      midiNote,
+      now + intervalSeconds * index,
+      durationSeconds,
+      0.34,
+    )
+  })
+}
+
 export async function playSineTone(frequency: number, durationSeconds = 0.9) {
   await playSineTones([frequency], durationSeconds)
 }
@@ -6,63 +93,108 @@ export async function playSineTones(
   frequencies: number[],
   durationSeconds = 0.9,
 ) {
-  const audioContext = createAudioContext()
-  const now = audioContext.currentTime
-  const outputGain = audioContext.createGain()
+  const context = getAudioContext()
+  await context.resume()
+
+  const now = context.currentTime
+  const outputGain = context.createGain()
   const peakGain = Math.min(0.28, 0.42 / frequencies.length)
 
   outputGain.gain.setValueAtTime(0.0001, now)
   outputGain.gain.exponentialRampToValueAtTime(peakGain, now + 0.02)
   outputGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds)
-  outputGain.connect(audioContext.destination)
+  outputGain.connect(context.destination)
 
   frequencies.forEach((frequency) => {
-    scheduleSineTone(audioContext, outputGain, frequency, now, durationSeconds)
+    scheduleSineTone(context, outputGain, frequency, now, durationSeconds)
   })
-
-  closeAfter(audioContext, now + durationSeconds)
 }
 
-export async function playSineToneSequence(
-  frequencies: number[],
-  intervalSeconds = 0.6,
-  durationSeconds = 0.45,
+function getAudioContext() {
+  if (!audioContext) {
+    const AudioContextClass = window.AudioContext ?? window.webkitAudioContext
+    audioContext = new AudioContextClass()
+  }
+
+  return audioContext
+}
+
+async function loadPianoSamples() {
+  const context = getAudioContext()
+
+  await Promise.all(
+    pianoSamples.map(async (sample) => {
+      if (pianoBuffers.has(sample.midiNote)) {
+        return
+      }
+
+      const response = await fetch(
+        `${sampleBasePath}${encodeURIComponent(sample.fileName)}`,
+      )
+
+      if (!response.ok) {
+        throw new Error(`Failed to load piano sample: ${sample.fileName}`)
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      const audioBuffer = await context.decodeAudioData(arrayBuffer)
+      pianoBuffers.set(sample.midiNote, audioBuffer)
+    }),
+  )
+}
+
+function schedulePianoNote(
+  context: AudioContext,
+  midiNote: number,
+  startAt: number,
+  durationSeconds: number,
+  peakGain: number,
 ) {
-  const audioContext = createAudioContext()
-  const outputGain = audioContext.createGain()
-  const now = audioContext.currentTime
-  const endAt = now + intervalSeconds * (frequencies.length - 1) + durationSeconds
+  const nearestSample = findNearestSample(midiNote)
+  const buffer = pianoBuffers.get(nearestSample.midiNote)
 
-  outputGain.gain.setValueAtTime(0.22, now)
-  outputGain.connect(audioContext.destination)
+  if (!buffer) {
+    throw new Error(`Missing decoded piano sample: ${nearestSample.fileName}`)
+  }
 
-  frequencies.forEach((frequency, index) => {
-    scheduleSineTone(
-      audioContext,
-      outputGain,
-      frequency,
-      now + intervalSeconds * index,
-      durationSeconds,
-    )
-  })
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  const stopAt = startAt + durationSeconds
 
-  closeAfter(audioContext, endAt)
+  source.buffer = buffer
+  source.playbackRate.setValueAtTime(
+    2 ** ((midiNote - nearestSample.midiNote) / 12),
+    startAt,
+  )
+
+  gain.gain.setValueAtTime(0.0001, startAt)
+  gain.gain.exponentialRampToValueAtTime(peakGain, startAt + 0.02)
+  gain.gain.setValueAtTime(peakGain, Math.max(startAt + 0.03, stopAt - 0.28))
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+
+  source.connect(gain)
+  gain.connect(context.destination)
+  source.start(startAt)
+  source.stop(stopAt + 0.02)
 }
 
-function createAudioContext() {
-  const AudioContextClass = window.AudioContext ?? window.webkitAudioContext
-  return new AudioContextClass()
+function findNearestSample(midiNote: number) {
+  return pianoSamples.reduce((nearest, sample) =>
+    Math.abs(sample.midiNote - midiNote) < Math.abs(nearest.midiNote - midiNote)
+      ? sample
+      : nearest,
+  )
 }
 
 function scheduleSineTone(
-  audioContext: AudioContext,
+  context: AudioContext,
   destination: AudioNode,
   frequency: number,
   startAt: number,
   durationSeconds: number,
 ) {
-  const oscillator = audioContext.createOscillator()
-  const toneGain = audioContext.createGain()
+  const oscillator = context.createOscillator()
+  const toneGain = context.createGain()
 
   oscillator.type = 'sine'
   oscillator.frequency.setValueAtTime(frequency, startAt)
@@ -77,13 +209,6 @@ function scheduleSineTone(
   toneGain.connect(destination)
   oscillator.start(startAt)
   oscillator.stop(startAt + durationSeconds)
-}
-
-function closeAfter(audioContext: AudioContext, endAt: number) {
-  window.setTimeout(
-    () => void audioContext.close(),
-    Math.max(0, (endAt - audioContext.currentTime) * 1000 + 80),
-  )
 }
 
 declare global {

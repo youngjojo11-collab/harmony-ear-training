@@ -621,6 +621,13 @@
   font-weight: 900;
 }
 
+.play-note-button:disabled {
+  color: var(--text-muted);
+  background: var(--status-bg);
+  border-color: var(--status-border);
+  cursor: wait;
+}
+
 .answer-edit-actions {
   display: flex;
   flex-wrap: wrap;

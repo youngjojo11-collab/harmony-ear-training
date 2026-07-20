@@ -159,6 +159,10 @@ export function getQuestionFrequencies(question: PitchQuestion) {
   return question.notes.map((note) => note.frequency)
 }
 
+export function getQuestionMidiNotes(question: PitchQuestion) {
+  return question.notes.map((note) => note.midiNote)
+}
+
 export function getQuestionAnswerNames(question: PitchQuestion) {
   const noteNames = question.notes.map((note) => note.noteName)
 
