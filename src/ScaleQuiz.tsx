@@ -52,7 +52,7 @@ export function ScaleQuiz() {
       <div className="section-heading">
         <div>
           <h2>스케일 퀴즈</h2>
-          <p>12개 Key와 1~7도를 랜덤으로 출제합니다.</p>
+          <p>12개 Key와 Major / Natural Minor를 랜덤으로 출제합니다.</p>
         </div>
         <div className="quiz-score" aria-label="현재 점수">
           {score} / {totalQuestions}
@@ -62,7 +62,7 @@ export function ScaleQuiz() {
       <div className="quiz-question">
         <span className="quiz-label">문제</span>
         <strong>
-          {question.keyLabel} Major의 {question.degree}도는?
+          {question.keyLabel} {question.modeLabel}의 {question.degree}도는?
         </strong>
       </div>
 
@@ -96,7 +96,9 @@ export function ScaleQuiz() {
 
       {result && (
         <div
-          className={result.isCorrect ? 'quiz-feedback correct' : 'quiz-feedback incorrect'}
+          className={
+            result.isCorrect ? 'quiz-feedback correct' : 'quiz-feedback incorrect'
+          }
           role="status"
         >
           <strong>{result.isCorrect ? '정답입니다.' : '오답입니다.'}</strong>

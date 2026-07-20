@@ -1,3 +1,5 @@
+export type ScaleMode = 'major' | 'minor'
+
 export type KeyOption = {
   label: string
   tonic: string
@@ -6,6 +8,10 @@ export type KeyOption = {
 export type ScaleDegree = {
   degree: number
   note: string
+}
+
+export type ScalePitchClass = ScaleDegree & {
+  pitchClass: number
 }
 
 export type PianoKey = {
@@ -22,7 +28,19 @@ export type PitchClassOption = {
   pitchClass: number
 }
 
-const majorScaleIntervals = [0, 2, 4, 5, 7, 9, 11]
+export const scaleModeOptions: Array<{
+  mode: ScaleMode
+  label: string
+  fullLabel: string
+}> = [
+  { mode: 'major', label: 'Major', fullLabel: 'Major Scale' },
+  { mode: 'minor', label: 'Minor', fullLabel: 'Natural Minor Scale' },
+]
+
+const scaleIntervals: Record<ScaleMode, number[]> = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+}
 
 const naturalPitchClasses: Record<string, number> = {
   C: 0,
@@ -73,11 +91,11 @@ export const keyOptions: KeyOption[] = [
   { label: 'B', tonic: 'B' },
 ]
 
-export function getMajorScale(tonic: string): ScaleDegree[] {
+export function getScale(tonic: string, mode: ScaleMode): ScaleDegree[] {
   const { letter, pitchClass } = parseNote(tonic)
   const startLetterIndex = letters.indexOf(letter)
 
-  return majorScaleIntervals.map((interval, index) => {
+  return scaleIntervals[mode].map((interval, index) => {
     const scaleLetter = letters[(startLetterIndex + index) % letters.length]
     const targetPitchClass = normalizePitchClass(pitchClass + interval)
     const naturalPitchClass = naturalPitchClasses[scaleLetter]
@@ -93,11 +111,22 @@ export function getMajorScale(tonic: string): ScaleDegree[] {
   })
 }
 
-export function getMajorScalePitchClasses(tonic: string) {
-  return getMajorScale(tonic).map((scaleNote) => ({
+export function getScalePitchClasses(
+  tonic: string,
+  mode: ScaleMode,
+): ScalePitchClass[] {
+  return getScale(tonic, mode).map((scaleNote) => ({
     ...scaleNote,
     pitchClass: getPitchClass(scaleNote.note),
   }))
+}
+
+export function getMajorScale(tonic: string): ScaleDegree[] {
+  return getScale(tonic, 'major')
+}
+
+export function getMajorScalePitchClasses(tonic: string): ScalePitchClass[] {
+  return getScalePitchClasses(tonic, 'major')
 }
 
 export function getTwoOctavePianoKeys(startOctave = 4): PianoKey[] {
@@ -111,6 +140,13 @@ export function getTwoOctavePianoKeys(startOctave = 4): PianoKey[] {
       id: `${key.note}${octave}`,
     }
   })
+}
+
+export function getScaleModeFullLabel(mode: ScaleMode) {
+  return (
+    scaleModeOptions.find((option) => option.mode === mode)?.fullLabel ??
+    'Major Scale'
+  )
 }
 
 export function getPitchClass(note: string) {

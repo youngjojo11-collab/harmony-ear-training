@@ -3,10 +3,13 @@ import './App.css'
 import { PianoKeyboard } from './PianoKeyboard'
 import { ScaleQuiz } from './ScaleQuiz'
 import {
-  getMajorScale,
-  getMajorScalePitchClasses,
+  getScale,
+  getScaleModeFullLabel,
+  getScalePitchClasses,
   getTwoOctavePianoKeys,
   keyOptions,
+  scaleModeOptions,
+  type ScaleMode,
 } from './musicTheory'
 
 type Screen = 'home' | 'scale'
@@ -22,12 +25,17 @@ type LearningMenu = {
 function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [selectedKey, setSelectedKey] = useState(keyOptions[0].tonic)
-  const scaleNotes = useMemo(() => getMajorScale(selectedKey), [selectedKey])
+  const [scaleMode, setScaleMode] = useState<ScaleMode>('major')
+  const scaleNotes = useMemo(
+    () => getScale(selectedKey, scaleMode),
+    [selectedKey, scaleMode],
+  )
   const highlightedScaleNotes = useMemo(
-    () => getMajorScalePitchClasses(selectedKey),
-    [selectedKey],
+    () => getScalePitchClasses(selectedKey, scaleMode),
+    [selectedKey, scaleMode],
   )
   const pianoKeys = useMemo(() => getTwoOctavePianoKeys(), [])
+  const scaleLabel = getScaleModeFullLabel(scaleMode)
 
   const menus: LearningMenu[] = [
     {
@@ -62,18 +70,41 @@ function App() {
         </button>
 
         <section className="scale-header" aria-labelledby="scale-title">
-          <p className="eyebrow">Major Scale</p>
+          <p className="eyebrow">{scaleLabel}</p>
           <h1 id="scale-title">스케일 학습</h1>
           <p className="hero-copy">
-            Key를 선택하면 해당 Major Scale의 7개 음과 1도부터 7도까지의
+            Key와 모드를 선택하면 해당 Scale의 7개 음과 1도부터 7도까지의
             관계를 확인할 수 있습니다.
           </p>
+        </section>
+
+        <section className="scale-panel" aria-label="스케일 모드 선택">
+          <div className="section-heading">
+            <h2>모드 선택</h2>
+            <p>Major / Natural Minor</p>
+          </div>
+          <div className="mode-toggle" role="group" aria-label="스케일 모드">
+            {scaleModeOptions.map((option) => (
+              <button
+                key={option.mode}
+                type="button"
+                className={
+                  option.mode === scaleMode
+                    ? 'mode-button selected'
+                    : 'mode-button'
+                }
+                onClick={() => setScaleMode(option.mode)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="scale-panel" aria-label="Key 선택">
           <div className="section-heading">
             <h2>Key 선택</h2>
-            <p>Major Scale 기준</p>
+            <p>{scaleLabel} 기준</p>
           </div>
           <div className="key-grid">
             {keyOptions.map((key) => (
@@ -91,9 +122,11 @@ function App() {
           </div>
         </section>
 
-        <section className="scale-panel" aria-label={`${selectedKey} Major Scale`}>
+        <section className="scale-panel" aria-label={`${selectedKey} ${scaleLabel}`}>
           <div className="section-heading">
-            <h2>{selectedKey} Major Scale</h2>
+            <h2>
+              {selectedKey} {scaleLabel}
+            </h2>
             <p>1도부터 7도까지</p>
           </div>
           <ol className="degree-grid">
@@ -108,7 +141,7 @@ function App() {
 
         <section
           className="scale-panel piano-panel"
-          aria-label={`${selectedKey} Major Scale 피아노 건반`}
+          aria-label={`${selectedKey} ${scaleLabel} 피아노 건반`}
         >
           <div className="section-heading">
             <h2>가상 피아노</h2>
