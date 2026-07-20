@@ -5,6 +5,8 @@ import {
   preloadPianoSamples,
 } from './audioEngine'
 import {
+  allPitchRangeIds,
+  canCreatePitchQuestion,
   checkPitchAnswer,
   createPitchQuestion,
   getAverageResponseTimeMs,
@@ -24,14 +26,20 @@ import {
   type PitchTestSettings,
 } from './pitchTestLogic'
 
+const defaultPitchTestSettings: PitchTestSettings = {
+  mode: 'white',
+  rangeIds: ['c4-b4'],
+  questionType: 'single',
+  sequenceLength: 2,
+}
+
 export function PitchTest() {
-  const [settings, setSettings] = useState<PitchTestSettings>({
-    mode: 'white',
-    rangeId: 'c4-b4',
-    questionType: 'single',
-    sequenceLength: 2,
-  })
-  const [question, setQuestion] = useState(() => createPitchQuestion(settings))
+  const [settings, setSettings] = useState<PitchTestSettings>(
+    defaultPitchTestSettings,
+  )
+  const [question, setQuestion] = useState(() =>
+    createPitchQuestion(defaultPitchTestSettings),
+  )
   const [selectedNoteNames, setSelectedNoteNames] = useState<string[]>([])
   const [result, setResult] = useState<PitchTestResult | null>(null)
   const [score, setScore] = useState(0)
@@ -78,33 +86,40 @@ export function PitchTest() {
   const selectedAnswerText =
     selectedNoteNames.length > 0 ? selectedNoteNames.join(' - ') : '없음'
   const isSequence = settings.questionType === 'sequence'
+  const canTest = canCreatePitchQuestion(settings)
+  const allRangesSelected = allPitchRangeIds.every((rangeId) =>
+    settings.rangeIds.includes(rangeId),
+  )
 
   function handleQuestionTypeChange(questionType: PitchQuestionType) {
-    const nextSettings = { ...settings, questionType }
-    setSettings(nextSettings)
-    resetCurrentQuestion(nextSettings)
+    applySettings({ ...settings, questionType })
   }
 
   function handleSequenceLengthChange(sequenceLength: number) {
-    const nextSettings = { ...settings, sequenceLength }
-    setSettings(nextSettings)
-    resetCurrentQuestion(nextSettings)
+    applySettings({ ...settings, sequenceLength })
   }
 
   function handleModeChange(mode: PitchTestMode) {
-    const nextSettings = { ...settings, mode }
-    setSettings(nextSettings)
-    resetCurrentQuestion(nextSettings)
+    applySettings({ ...settings, mode })
   }
 
-  function handleRangeChange(rangeId: PitchRangeId) {
-    const nextSettings = { ...settings, rangeId }
-    setSettings(nextSettings)
-    resetCurrentQuestion(nextSettings)
+  function handleRangeToggle(rangeId: PitchRangeId) {
+    const nextRangeIds = settings.rangeIds.includes(rangeId)
+      ? settings.rangeIds.filter((item) => item !== rangeId)
+      : [...settings.rangeIds, rangeId]
+
+    applySettings({ ...settings, rangeIds: nextRangeIds })
+  }
+
+  function handleAllRangeToggle() {
+    applySettings({
+      ...settings,
+      rangeIds: allRangesSelected ? [] : [...allPitchRangeIds],
+    })
   }
 
   function handleAnswer(noteName: string) {
-    if (result) {
+    if (result || !canTest) {
       return
     }
 
@@ -128,7 +143,7 @@ export function PitchTest() {
   }
 
   function handleUndoAnswer() {
-    if (result) {
+    if (result || !canTest) {
       return
     }
 
@@ -136,7 +151,7 @@ export function PitchTest() {
   }
 
   function handleClearAnswer() {
-    if (result) {
+    if (result || !canTest) {
       return
     }
 
@@ -144,7 +159,7 @@ export function PitchTest() {
   }
 
   function handleSubmitAnswer() {
-    if (result || selectedNoteNames.length !== requiredAnswerCount) {
+    if (result || !canTest || selectedNoteNames.length !== requiredAnswerCount) {
       return
     }
 
@@ -162,6 +177,10 @@ export function PitchTest() {
   }
 
   function handlePlayQuestion() {
+    if (!canTest) {
+      return
+    }
+
     const midiNotes = getQuestionMidiNotes(question)
 
     if (isSequence) {
@@ -173,7 +192,23 @@ export function PitchTest() {
   }
 
   function handleNextQuestion() {
+    if (!canTest) {
+      return
+    }
+
     resetCurrentQuestion(settings)
+  }
+
+  function applySettings(nextSettings: PitchTestSettings) {
+    setSettings(nextSettings)
+
+    if (canCreatePitchQuestion(nextSettings)) {
+      resetCurrentQuestion(nextSettings)
+      return
+    }
+
+    setSelectedNoteNames([])
+    setResult(null)
   }
 
   function resetCurrentQuestion(nextSettings: PitchTestSettings) {
@@ -188,14 +223,14 @@ export function PitchTest() {
         <p className="eyebrow">Absolute Pitch</p>
         <h1 id="pitch-title">절대음감 테스트</h1>
         <p className="hero-copy">
-          선택한 난이도와 음역 안에서 단음, 동시 2음, 연속음이 랜덤으로
-          출제됩니다. 기준음 없이 들리는 음이름을 선택합니다.
+          선택한 테스트 유형과 음역 안에서 단음, 동시 2음, 연속음을
+          랜덤으로 출제합니다. 기준음 없이 들리는 음이름을 선택합니다.
         </p>
       </section>
 
-      <section className="scale-panel" aria-label="난이도 설정">
+      <section className="scale-panel" aria-label="테스트 설정">
         <div className="section-heading">
-          <h2>난이도 설정</h2>
+          <h2>테스트 설정</h2>
           <p>테스트 유형, 모드, 음역</p>
         </div>
 
@@ -223,7 +258,11 @@ export function PitchTest() {
           {isSequence && (
             <div>
               <span className="setting-label">연속음 개수</span>
-              <div className="sequence-length-grid" role="group" aria-label="연속음 개수">
+              <div
+                className="sequence-length-grid"
+                role="group"
+                aria-label="연속음 개수"
+              >
                 {pitchSequenceLengthOptions.map((length) => (
                   <button
                     key={length}
@@ -265,21 +304,35 @@ export function PitchTest() {
           <div>
             <span className="setting-label">음역</span>
             <div className="range-grid" role="group" aria-label="음역">
+              <button
+                type="button"
+                className={allRangesSelected ? 'key-button selected' : 'key-button'}
+                aria-pressed={allRangesSelected}
+                onClick={handleAllRangeToggle}
+              >
+                전체 C2~B5
+              </button>
               {pitchRangeOptions.map((range) => (
                 <button
                   key={range.id}
                   type="button"
                   className={
-                    settings.rangeId === range.id
+                    settings.rangeIds.includes(range.id)
                       ? 'key-button selected'
                       : 'key-button'
                   }
-                  onClick={() => handleRangeChange(range.id)}
+                  aria-pressed={settings.rangeIds.includes(range.id)}
+                  onClick={() => handleRangeToggle(range.id)}
                 >
                   {range.label}
                 </button>
               ))}
             </div>
+            {!canTest && (
+              <p className="range-warning" role="status">
+                테스트를 진행하려면 음역을 1개 이상 선택해야 합니다.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -308,12 +361,12 @@ export function PitchTest() {
         <button
           type="button"
           className="play-note-button"
-          disabled={sampleStatus !== 'ready'}
+          disabled={sampleStatus !== 'ready' || !canTest}
           onClick={handlePlayQuestion}
         >
           {sampleStatus === 'loading' ? '피아노 샘플 로딩 중' : '음 재생'}
         </button>
-        <div className="selected-notes" aria-label="현재 입력된 음 순서">
+        <div className="selected-notes" aria-label="현재 입력한 음 순서">
           입력한 음: {selectedAnswerText}
         </div>
 
@@ -322,7 +375,7 @@ export function PitchTest() {
             <button
               type="button"
               className="secondary-action-button"
-              disabled={Boolean(result) || selectedNoteNames.length === 0}
+              disabled={Boolean(result) || !canTest || selectedNoteNames.length === 0}
               onClick={handleUndoAnswer}
             >
               하나씩 되돌리기
@@ -330,7 +383,7 @@ export function PitchTest() {
             <button
               type="button"
               className="secondary-action-button"
-              disabled={Boolean(result) || selectedNoteNames.length === 0}
+              disabled={Boolean(result) || !canTest || selectedNoteNames.length === 0}
               onClick={handleClearAnswer}
             >
               전체 초기화
@@ -338,7 +391,7 @@ export function PitchTest() {
           </div>
         )}
 
-        <div className="answer-grid" aria-label="음 이름 선택">
+        <div className="answer-grid" aria-label="음이름 선택">
           {pitchAnswerOptions.map((noteName) => {
             const isSelected = selectedNoteNames.includes(noteName)
             const isCorrectAnswer =
@@ -357,7 +410,7 @@ export function PitchTest() {
                 key={noteName}
                 type="button"
                 className={answerClassName}
-                disabled={Boolean(result)}
+                disabled={Boolean(result) || !canTest}
                 onClick={() => handleAnswer(noteName)}
               >
                 {noteName}
@@ -388,7 +441,11 @@ export function PitchTest() {
           <button
             type="button"
             className="submit-answer-button"
-            disabled={Boolean(result) || selectedNoteNames.length !== requiredAnswerCount}
+            disabled={
+              Boolean(result) ||
+              !canTest ||
+              selectedNoteNames.length !== requiredAnswerCount
+            }
             onClick={handleSubmitAnswer}
           >
             제출
@@ -396,7 +453,7 @@ export function PitchTest() {
           <button
             type="button"
             className="next-question-button"
-            disabled={!result}
+            disabled={!result || !canTest}
             onClick={handleNextQuestion}
           >
             다음 문제
@@ -462,7 +519,7 @@ function getQuestionDescription(settings: PitchTestSettings) {
   }
 
   if (settings.questionType === 'sequence') {
-    return `${settings.sequenceLength}개 음을 0.6초 간격으로 순서대로 재생합니다.`
+    return `${settings.sequenceLength}개 음을 순서대로 재생합니다.`
   }
 
   return '같은 음이 연속으로 나올 수 있습니다.'
@@ -470,7 +527,7 @@ function getQuestionDescription(settings: PitchTestSettings) {
 
 function getQuestionPrompt(questionType: PitchQuestionType) {
   if (questionType === 'dyad') {
-    return '동시에 재생된 두 음은 무엇인가요?'
+    return '동시에 재생된 음은 무엇인가요?'
   }
 
   if (questionType === 'sequence') {

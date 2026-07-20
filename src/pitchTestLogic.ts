@@ -1,5 +1,5 @@
 export type PitchTestMode = 'white' | 'chromatic'
-export type PitchRangeId = 'c2-b2' | 'c3-b3' | 'c4-b4' | 'c5-b5' | 'c2-b5'
+export type PitchRangeId = 'c2-b2' | 'c3-b3' | 'c4-b4' | 'c5-b5'
 export type PitchQuestionType = 'single' | 'dyad' | 'sequence'
 
 export type PitchQuestionNote = {
@@ -17,7 +17,7 @@ export type PitchQuestion = {
 
 export type PitchTestSettings = {
   mode: PitchTestMode
-  rangeId: PitchRangeId
+  rangeIds: PitchRangeId[]
   questionType: PitchQuestionType
   sequenceLength: number
 }
@@ -79,8 +79,9 @@ export const pitchRangeOptions: Array<{
   { id: 'c3-b3', label: 'C3~B3', minMidi: 48, maxMidi: 59 },
   { id: 'c4-b4', label: 'C4~B4', minMidi: 60, maxMidi: 71 },
   { id: 'c5-b5', label: 'C5~B5', minMidi: 72, maxMidi: 83 },
-  { id: 'c2-b5', label: '전체 C2~B5', minMidi: 36, maxMidi: 83 },
 ]
+
+export const allPitchRangeIds = pitchRangeOptions.map((range) => range.id)
 
 const whiteKeyNoteNames = new Set(['C', 'D', 'E', 'F', 'G', 'A', 'B'])
 
@@ -96,6 +97,11 @@ export function createPitchQuestion(
   now: () => number = performance.now.bind(performance),
 ): PitchQuestion {
   const candidates = getQuestionCandidates(settings)
+
+  if (candidates.length === 0) {
+    throw new Error('Pitch test requires at least one playable range')
+  }
+
   const questionNotes = createQuestionNotes(candidates, settings, random)
 
   return {
@@ -103,6 +109,10 @@ export function createPitchQuestion(
     notes: questionNotes,
     startedAt: now(),
   }
+}
+
+export function canCreatePitchQuestion(settings: PitchTestSettings) {
+  return getQuestionCandidates(settings).length > 0
 }
 
 export function checkPitchAnswer(
@@ -192,22 +202,34 @@ function createQuestionNotes(
 }
 
 function getQuestionCandidates(settings: PitchTestSettings) {
-  const range = pitchRangeOptions.find((option) => option.id === settings.rangeId)
-
-  if (!range) {
-    throw new Error(`Invalid pitch range: ${settings.rangeId}`)
+  if (settings.rangeIds.length === 0) {
+    return []
   }
 
-  return Array.from(
-    { length: range.maxMidi - range.minMidi + 1 },
-    (_, index) => range.minMidi + index,
-  ).filter((midiNote) => {
-    if (settings.mode === 'chromatic') {
-      return true
+  const candidateSet = settings.rangeIds.reduce<Set<number>>((midiNotes, rangeId) => {
+    const range = pitchRangeOptions.find((option) => option.id === rangeId)
+
+    if (!range) {
+      throw new Error(`Invalid pitch range: ${rangeId}`)
     }
 
-    return whiteKeyNoteNames.has(getNoteNameFromMidiNote(midiNote))
-  })
+    Array.from(
+      { length: range.maxMidi - range.minMidi + 1 },
+      (_, index) => range.minMidi + index,
+    ).forEach((midiNote) => midiNotes.add(midiNote))
+
+    return midiNotes
+  }, new Set<number>())
+
+  return [...candidateSet]
+    .sort((a, b) => a - b)
+    .filter((midiNote) => {
+      if (settings.mode === 'chromatic') {
+        return true
+      }
+
+      return whiteKeyNoteNames.has(getNoteNameFromMidiNote(midiNote))
+    })
 }
 
 function pickDifferentNotes(candidates: number[], random: () => number) {
