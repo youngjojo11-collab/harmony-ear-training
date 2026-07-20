@@ -20,11 +20,40 @@ export type ChordQuizResult = {
   correctAnswer: string
 }
 
+export type ChordQuizRange = {
+  rootPitchClasses: number[]
+  chordTypeIds: string[]
+}
+
+export function getDefaultChordQuizRange(): ChordQuizRange {
+  return {
+    rootPitchClasses: pitchClassOptions.map((option) => option.pitchClass),
+    chordTypeIds: chordTypes.map((chordType) => chordType.id),
+  }
+}
+
+export function canCreateChordQuizQuestion(range: ChordQuizRange) {
+  return range.rootPitchClasses.length > 0 && range.chordTypeIds.length > 0
+}
+
 export function createChordQuizQuestion(
+  range: ChordQuizRange = getDefaultChordQuizRange(),
   random: () => number = Math.random,
 ): ChordQuizQuestion {
-  const root = pitchClassOptions[getRandomIndex(pitchClassOptions.length, random)]
-  const chordType = chordTypes[getRandomIndex(chordTypes.length, random)]
+  const availableRoots = pitchClassOptions.filter((option) =>
+    range.rootPitchClasses.includes(option.pitchClass),
+  )
+  const availableChordTypes = chordTypes.filter((chordType) =>
+    range.chordTypeIds.includes(chordType.id),
+  )
+
+  if (availableRoots.length === 0 || availableChordTypes.length === 0) {
+    throw new Error('Chord quiz requires at least one root and one chord type')
+  }
+
+  const root = availableRoots[getRandomIndex(availableRoots.length, random)]
+  const chordType =
+    availableChordTypes[getRandomIndex(availableChordTypes.length, random)]
   const chordTones = getChord(root.pitchClass, chordType.id)
 
   return {

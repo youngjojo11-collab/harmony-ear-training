@@ -1,19 +1,29 @@
 import { useMemo, useState } from 'react'
-import { pitchClassOptions } from './musicTheory'
+import { keyOptions, pitchClassOptions, scaleModeOptions } from './musicTheory'
 import {
+  canCreateScaleQuizQuestion,
   checkScaleQuizAnswer,
   createScaleQuizQuestion,
+  getDefaultScaleQuizRange,
+  type ScaleQuizRange,
   type ScaleQuizResult,
 } from './scaleQuizLogic'
 
 export function ScaleQuiz() {
-  const [question, setQuestion] = useState(() => createScaleQuizQuestion())
+  const [quizRange, setQuizRange] = useState<ScaleQuizRange>(() =>
+    getDefaultScaleQuizRange(),
+  )
+  const [question, setQuestion] = useState(() =>
+    createScaleQuizQuestion(getDefaultScaleQuizRange()),
+  )
   const [selectedPitchClass, setSelectedPitchClass] = useState<number | null>(
     null,
   )
   const [result, setResult] = useState<ScaleQuizResult | null>(null)
   const [score, setScore] = useState(0)
   const [totalQuestions, setTotalQuestions] = useState(0)
+
+  const canCreateQuestion = canCreateScaleQuizQuestion(quizRange)
 
   const selectedAnswerLabel = useMemo(() => {
     if (selectedPitchClass === null) {
@@ -25,6 +35,24 @@ export function ScaleQuiz() {
         ?.label ?? ''
     )
   }, [selectedPitchClass])
+
+  function handleToggleKey(tonic: string) {
+    setQuizRange((current) => ({
+      ...current,
+      tonics: current.tonics.includes(tonic)
+        ? current.tonics.filter((item) => item !== tonic)
+        : [...current.tonics, tonic],
+    }))
+  }
+
+  function handleToggleMode(mode: ScaleQuizRange['modes'][number]) {
+    setQuizRange((current) => ({
+      ...current,
+      modes: current.modes.includes(mode)
+        ? current.modes.filter((item) => item !== mode)
+        : [...current.modes, mode],
+    }))
+  }
 
   function handleAnswer(pitchClass: number) {
     if (result) {
@@ -42,7 +70,11 @@ export function ScaleQuiz() {
   }
 
   function handleNextQuestion() {
-    setQuestion(createScaleQuizQuestion())
+    if (!canCreateQuestion) {
+      return
+    }
+
+    setQuestion(createScaleQuizQuestion(quizRange))
     setSelectedPitchClass(null)
     setResult(null)
   }
@@ -52,11 +84,107 @@ export function ScaleQuiz() {
       <div className="section-heading">
         <div>
           <h2>스케일 퀴즈</h2>
-          <p>12개 Key와 Major / Natural Minor를 랜덤으로 출제합니다.</p>
+          <p>선택한 Key와 스케일 모드 범위 안에서 문제를 출제합니다.</p>
         </div>
         <div className="quiz-score" aria-label="현재 점수">
           {score} / {totalQuestions}
         </div>
+      </div>
+
+      <div className="quiz-settings" aria-label="스케일 퀴즈 출제 범위">
+        <div className="setting-group">
+          <div className="setting-toolbar">
+            <strong>Key</strong>
+            <div className="bulk-actions">
+              <button
+                type="button"
+                className="bulk-action-button"
+                onClick={() =>
+                  setQuizRange((current) => ({
+                    ...current,
+                    tonics: keyOptions.map((key) => key.tonic),
+                  }))
+                }
+              >
+                전체 선택
+              </button>
+              <button
+                type="button"
+                className="bulk-action-button"
+                onClick={() =>
+                  setQuizRange((current) => ({ ...current, tonics: [] }))
+                }
+              >
+                전체 해제
+              </button>
+            </div>
+          </div>
+          <div className="multi-select-grid key-range-grid">
+            {keyOptions.map((key) => (
+              <button
+                key={key.tonic}
+                type="button"
+                className={`key-button ${
+                  quizRange.tonics.includes(key.tonic) ? 'selected' : ''
+                }`}
+                aria-pressed={quizRange.tonics.includes(key.tonic)}
+                onClick={() => handleToggleKey(key.tonic)}
+              >
+                {key.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="setting-group">
+          <div className="setting-toolbar">
+            <strong>스케일 모드</strong>
+            <div className="bulk-actions">
+              <button
+                type="button"
+                className="bulk-action-button"
+                onClick={() =>
+                  setQuizRange((current) => ({
+                    ...current,
+                    modes: scaleModeOptions.map((modeOption) => modeOption.mode),
+                  }))
+                }
+              >
+                전체 선택
+              </button>
+              <button
+                type="button"
+                className="bulk-action-button"
+                onClick={() =>
+                  setQuizRange((current) => ({ ...current, modes: [] }))
+                }
+              >
+                전체 해제
+              </button>
+            </div>
+          </div>
+          <div className="multi-select-grid mode-range-grid">
+            {scaleModeOptions.map((modeOption) => (
+              <button
+                key={modeOption.mode}
+                type="button"
+                className={`mode-button ${
+                  quizRange.modes.includes(modeOption.mode) ? 'selected' : ''
+                }`}
+                aria-pressed={quizRange.modes.includes(modeOption.mode)}
+                onClick={() => handleToggleMode(modeOption.mode)}
+              >
+                {modeOption.fullLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!canCreateQuestion && (
+          <p className="range-warning" role="status">
+            새 문제를 만들려면 Key와 스케일 모드를 각각 1개 이상 선택해야 합니다.
+          </p>
+        )}
       </div>
 
       <div className="quiz-question">
@@ -111,7 +239,7 @@ export function ScaleQuiz() {
       <button
         type="button"
         className="next-question-button"
-        disabled={!result}
+        disabled={!result || !canCreateQuestion}
         onClick={handleNextQuestion}
       >
         다음 문제

@@ -21,11 +21,37 @@ export type ScaleQuizResult = {
   correctAnswer: string
 }
 
+export type ScaleQuizRange = {
+  tonics: string[]
+  modes: ScaleMode[]
+}
+
+export function getDefaultScaleQuizRange(): ScaleQuizRange {
+  return {
+    tonics: keyOptions.map((key) => key.tonic),
+    modes: scaleModeOptions.map((modeOption) => modeOption.mode),
+  }
+}
+
+export function canCreateScaleQuizQuestion(range: ScaleQuizRange) {
+  return range.tonics.length > 0 && range.modes.length > 0
+}
+
 export function createScaleQuizQuestion(
+  range: ScaleQuizRange = getDefaultScaleQuizRange(),
   random: () => number = Math.random,
 ): ScaleQuizQuestion {
-  const key = keyOptions[getRandomIndex(keyOptions.length, random)]
-  const modeOption = scaleModeOptions[getRandomIndex(scaleModeOptions.length, random)]
+  const availableKeys = keyOptions.filter((key) => range.tonics.includes(key.tonic))
+  const availableModes = scaleModeOptions.filter((modeOption) =>
+    range.modes.includes(modeOption.mode),
+  )
+
+  if (availableKeys.length === 0 || availableModes.length === 0) {
+    throw new Error('Scale quiz requires at least one key and one scale mode')
+  }
+
+  const key = availableKeys[getRandomIndex(availableKeys.length, random)]
+  const modeOption = availableModes[getRandomIndex(availableModes.length, random)]
   const degree = getRandomIndex(7, random) + 1
   const answer = getScalePitchClasses(key.tonic, modeOption.mode).find(
     (scaleNote) => scaleNote.degree === degree,
